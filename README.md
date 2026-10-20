@@ -26,7 +26,7 @@ yarn dev                      # 同时启动数据库（端口 55432）、API（
 yarn admin:create             # 首次使用时创建管理员账号（密码输入不会显示）
 ```
 
-**部署到 Vercel**：在 Vercel 项目里设置 `DATABASE_URL`（如 Neon）、`BETTER_AUTH_SECRET`、`BETTER_AUTH_URL`（站点地址）。构建时会自动执行数据库迁移。管理员账号用本地的 `yarn admin:create` 指向云端数据库创建。
+**部署到 Vercel**：在 Vercel 项目里设置 `DATABASE_URL`（如 Neon）、`BETTER_AUTH_SECRET`、`BETTER_AUTH_URL`（站点地址）。构建时会自动执行数据库迁移。云端的管理员账号在本地运行 `yarn admin:create:prod` 创建（会临时拉取线上环境变量，用完即删；脚本会先打印目标数据库地址）。
 
 <p align="center">
   为键盘工作者设计的单词记忆与英语肌肉记忆锻炼软件

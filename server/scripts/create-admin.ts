@@ -60,6 +60,9 @@ function promptHidden(question: string): Promise<string> {
   })
 }
 
+// Make it obvious whether this writes to the local database or the cloud one.
+console.log(`Database: ${new URL(process.env.DATABASE_URL ?? '').hostname}`)
+
 const displayUsername = process.env.QL_USERNAME ?? (await prompt('Admin username: '))
 let password = process.env.QL_PASSWORD
 if (!password) {

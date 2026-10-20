@@ -72,6 +72,7 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx --env-file-if-exists=.env server/db/migrate.ts",
     "admin:create": "tsx --env-file-if-exists=.env server/scripts/create-admin.ts",
+    "admin:create:prod": "vercel env pull .env.production.local --environment=production --yes --scope zichen-zhangs-projects > /dev/null && tsx --env-file=.env.production.local server/scripts/create-admin.ts; status=$?; rm -f .env.production.local; exit $status",
     "typecheck": "tsc --noEmit -p . && tsc --noEmit -p server",
     "test": "echo \"No tests\"",
     "test:e2e": "playwright test",
