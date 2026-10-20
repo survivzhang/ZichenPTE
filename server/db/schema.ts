@@ -4,7 +4,7 @@ import { bigint, boolean, index, integer, jsonb, pgTable, serial, text, timestam
 // ---------------------------------------------------------------------------
 // Auth tables, in the shape Better Auth expects (user, session, account,
 // verification, rateLimit). `username` / `displayUsername` come from the
-// username plugin.
+// username plugin; `role`, `banned*` and `impersonatedBy` from the admin plugin.
 // ---------------------------------------------------------------------------
 
 const createdAt = () => timestamp('created_at', { withTimezone: true }).defaultNow().notNull()
@@ -22,6 +22,11 @@ export const user = pgTable('user', {
   image: text('image'),
   username: text('username').unique(),
   displayUsername: text('display_username'),
+  // admin plugin: 'admin' or 'user'
+  role: text('role'),
+  banned: boolean('banned').default(false),
+  banReason: text('ban_reason'),
+  banExpires: timestamp('ban_expires', { withTimezone: true }),
   createdAt: createdAt(),
   updatedAt: updatedAt(),
 })
@@ -34,6 +39,7 @@ export const session = pgTable(
     token: text('token').notNull().unique(),
     ipAddress: text('ip_address'),
     userAgent: text('user_agent'),
+    impersonatedBy: text('impersonated_by'),
     userId: text('user_id')
       .notNull()
       .references(() => user.id, { onDelete: 'cascade' }),

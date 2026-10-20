@@ -66,9 +66,8 @@ export function useSaveChapterRecord() {
         wordRecordIds ?? [],
       )
       db.chapterRecords.add(chapterRecord)
-      // wordRecordIds are local IndexedDB ids, meaningless to the server
-      const { wordRecordIds: _localIds, ...chapterRecordForServer } = chapterRecord
-      postJSON('/records/chapters', chapterRecordForServer)
+      // wordRecordIds are local IndexedDB ids, meaningless to the server (undefined is dropped from the JSON)
+      postJSON('/records/chapters', { ...chapterRecord, wordRecordIds: undefined })
     },
     [currentChapter, dictID, isRevision],
   )

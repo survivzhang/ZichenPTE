@@ -8,6 +8,13 @@
       "when": 1792480602677,
       "tag": "0000_clean_multiple_man",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1792481690462,
+      "tag": "0001_omniscient_thunderbolts",
+      "breakpoints": true
     }
   ]
 }

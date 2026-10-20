@@ -71,7 +71,7 @@
     "build": "cross-env CI=false vite build --base=./",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx --env-file-if-exists=.env server/db/migrate.ts",
-    "user:create": "tsx --env-file-if-exists=.env server/scripts/create-user.ts",
+    "admin:create": "tsx --env-file-if-exists=.env server/scripts/create-admin.ts",
     "typecheck": "tsc --noEmit -p . && tsc --noEmit -p server",
     "test": "echo \"No tests\"",
     "test:e2e": "playwright test",

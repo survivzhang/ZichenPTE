@@ -15,17 +15,18 @@
 
 这是一个只保留英语词典、需要登录才能使用的个人版。练习记录会保存到 Postgres 数据库。
 
+应用不开放注册：先用命令创建一个管理员账号，其他人的账号由管理员在应用内的「用户管理」页面创建。
+
 **本地运行**（需要 Docker）：
 
 ```bash
 cp .env.example .env          # 然后填入 BETTER_AUTH_SECRET（openssl rand -base64 32）
 yarn install
 yarn dev                      # 同时启动数据库（端口 55432）、API（3001）和前端（5173）
-yarn user:create              # 首次使用时创建登录账号（应用内不开放注册）
+yarn admin:create             # 首次使用时创建管理员账号（密码输入不会显示）
 ```
 
-**部署到 Vercel**：在 Vercel 项目里设置 `DATABASE_URL`（如 Neon）、`BETTER_AUTH_SECRET`、`BETTER_AUTH_URL`（站点地址）。构建时会自动执行数据库迁移。账号用本地的 `yarn user:create` 指向云端数据库创建。
-
+**部署到 Vercel**：在 Vercel 项目里设置 `DATABASE_URL`（如 Neon）、`BETTER_AUTH_SECRET`、`BETTER_AUTH_URL`（站点地址）。构建时会自动执行数据库迁移。管理员账号用本地的 `yarn admin:create` 指向云端数据库创建。
 
 <p align="center">
   为键盘工作者设计的单词记忆与英语肌肉记忆锻炼软件

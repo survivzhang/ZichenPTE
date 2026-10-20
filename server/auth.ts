@@ -2,7 +2,7 @@ import { db } from './db/index.js'
 import * as schema from './db/schema.js'
 import { betterAuth } from 'better-auth'
 import { drizzleAdapter } from 'better-auth/adapters/drizzle'
-import { username } from 'better-auth/plugins'
+import { admin, username } from 'better-auth/plugins'
 
 const DAY = 60 * 60 * 24
 
@@ -12,35 +12,29 @@ const vercelOrigins = [process.env.VERCEL_URL, process.env.VERCEL_BRANCH_URL, pr
   .map((host) => `https://${host}`)
 
 /**
- * Sign-up is closed: the app is private, so accounts are only created with
- * `yarn user:create`, which builds an instance with `allowSignUp: true`.
+ * Public sign-up is closed. The first admin is created with `yarn admin:create`;
+ * after that, admins add everyone else from the in-app admin page.
  */
-export function createAuth({ allowSignUp = false } = {}) {
-  return betterAuth({
-    basePath: '/api/auth',
-    database: drizzleAdapter(db, { provider: 'pg', schema }),
-    emailAndPassword: {
-      enabled: true,
-      disableSignUp: !allowSignUp,
-      // Accounts are created from the CLI, which has no use for a session.
-      autoSignIn: false,
-      minPasswordLength: 8,
+export const auth = betterAuth({
+  basePath: '/api/auth',
+  database: drizzleAdapter(db, { provider: 'pg', schema }),
+  emailAndPassword: {
+    enabled: true,
+    disableSignUp: true,
+    minPasswordLength: 8,
+  },
+  plugins: [username(), admin()],
+  session: {
+    // Stay signed in: the session lasts a year and is extended once a day while in use.
+    expiresIn: 365 * DAY,
+    updateAge: DAY,
+  },
+  rateLimit: {
+    enabled: true,
+    storage: 'database',
+    customRules: {
+      '/sign-in/username': { window: 60, max: 5 },
     },
-    plugins: [username()],
-    session: {
-      // Stay signed in: the session lasts a year and is extended once a day while in use.
-      expiresIn: 365 * DAY,
-      updateAge: DAY,
-    },
-    rateLimit: {
-      enabled: true,
-      storage: 'database',
-      customRules: {
-        '/sign-in/username': { window: 60, max: 5 },
-      },
-    },
-    trustedOrigins: vercelOrigins,
-  })
-}
-
-export const auth = createAuth()
+  },
+  trustedOrigins: vercelOrigins,
+})
