@@ -173,7 +173,7 @@ app.get('/words/practiced', async (c) => {
     .selectDistinct({ word: wordRecord.word })
     .from(wordRecord)
     .where(and(eq(wordRecord.userId, c.get('userId')), inArray(wordRecord.dict, dicts)))
-  return c.json({ words: [...new Set(rows.map((row) => row.word.toLowerCase()))] })
+  return c.json({ words: Array.from(new Set(rows.map((row) => row.word.toLowerCase()))) })
 })
 
 // ---- API key management (admins, from the user management page) ----

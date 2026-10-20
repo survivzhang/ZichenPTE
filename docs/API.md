@@ -19,15 +19,15 @@ curl -s "$BASE/users" -H "Authorization: Bearer $QLK"
 
 `POST /review-words`
 
-| field | type | |
-|---|---|---|
-| `username` | string | whose queue to add to |
-| `words` | array, 1–1000 items | |
-| `words[].word` | string | required; matching is case-insensitive |
-| `words[].trans` | string or string[] | meaning, e.g. `"n. 旅行计划"` or `["n. 旅行计划"]` |
-| `words[].usphone` / `ukphone` | string | phonetics without slashes, e.g. `aɪˈtɪnəreri` |
-| `words[].source` | `listening` \| `speaking` \| `reading` \| `writing` \| `other` | default `other` |
-| `words[].note` | string | where it came from, e.g. `"WFD 第12题"` |
+| field                         | type                                                           |                                                    |
+| ----------------------------- | -------------------------------------------------------------- | -------------------------------------------------- |
+| `username`                    | string                                                         | whose queue to add to                              |
+| `words`                       | array, 1–1000 items                                            |                                                    |
+| `words[].word`                | string                                                         | required; matching is case-insensitive             |
+| `words[].trans`               | string or string[]                                             | meaning, e.g. `"n. 旅行计划"` or `["n. 旅行计划"]` |
+| `words[].usphone` / `ukphone` | string                                                         | phonetics without slashes, e.g. `aɪˈtɪnəreri`      |
+| `words[].source`              | `listening` \| `speaking` \| `reading` \| `writing` \| `other` | default `other`                                    |
+| `words[].note`                | string                                                         | where it came from, e.g. `"WFD 第12题"`            |
 
 ```bash
 curl -s -X POST "$BASE/review-words" \
