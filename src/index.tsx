@@ -3,6 +3,7 @@ import PreferencesSync from './components/PreferencesSync'
 import './index.css'
 import { ErrorBook } from './pages/ErrorBook'
 import { FriendLinks } from './pages/FriendLinks'
+import HomePage from './pages/Home'
 import MobilePage from './pages/Mobile'
 import TypingPage from './pages/Typing'
 import { authClient } from './utils/auth-client'
@@ -56,7 +57,8 @@ function Root() {
                   <Route path="/*" element={<Navigate to="/mobile" />} />
                 ) : (
                   <>
-                    <Route index element={<TypingPage />} />
+                    <Route index element={<HomePage />} />
+                    <Route path="/practice" element={<TypingPage />} />
                     <Route path="/gallery" element={<GalleryPage />} />
                     <Route path="/analysis" element={<AnalysisPage />} />
                     <Route path="/error-book" element={<ErrorBook />} />

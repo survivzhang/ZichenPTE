@@ -3,22 +3,18 @@ import KeyboardWithBarCharts from './components/KeyboardWithBarCharts'
 import LineCharts from './components/LineCharts'
 import { useWordStats } from './hooks/useWordStats'
 import Layout from '@/components/Layout'
+import useGoBack from '@/hooks/useGoBack'
 import { isOpenDarkModeAtom } from '@/store'
 import * as ScrollArea from '@radix-ui/react-scroll-area'
 import dayjs from 'dayjs'
 import { useAtom } from 'jotai'
-import { useCallback } from 'react'
 import { useHotkeys } from 'react-hotkeys-hook'
-import { useNavigate } from 'react-router-dom'
 import IconX from '~icons/tabler/x'
 
 const Analysis = () => {
-  const navigate = useNavigate()
   const [, setIsOpenDarkMode] = useAtom(isOpenDarkModeAtom)
 
-  const onBack = useCallback(() => {
-    navigate('/')
-  }, [navigate])
+  const onBack = useGoBack()
 
   const changeDarkModeState = () => {
     setIsOpenDarkMode((old) => !old)

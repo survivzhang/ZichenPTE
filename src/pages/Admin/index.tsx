@@ -1,9 +1,9 @@
 import Layout from '@/components/Layout'
+import useGoBack from '@/hooks/useGoBack'
 import { authClient } from '@/utils/auth-client'
 import type { FormEvent } from 'react'
 import { useCallback, useEffect, useState } from 'react'
 import { useHotkeys } from 'react-hotkeys-hook'
-import { useNavigate } from 'react-router-dom'
 import IconX from '~icons/tabler/x'
 
 type Role = 'user' | 'admin'
@@ -236,7 +236,6 @@ function UserRow({ user, isSelf, onChanged }: { user: AdminUser; isSelf: boolean
 }
 
 export default function AdminPage() {
-  const navigate = useNavigate()
   const { data: session } = authClient.useSession()
   const [users, setUsers] = useState<AdminUser[]>([])
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -255,7 +254,7 @@ export default function AdminPage() {
     loadUsers()
   }, [loadUsers])
 
-  const onBack = useCallback(() => navigate('/'), [navigate])
+  const onBack = useGoBack()
   useHotkeys('esc', onBack, { preventDefault: true })
 
   return (

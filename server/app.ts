@@ -1,7 +1,7 @@
 import { auth } from './auth.js'
 import { db } from './db/index.js'
 import { chapterRecord, userPreference, wordRecord } from './db/schema.js'
-import { eq } from 'drizzle-orm'
+import { and, eq, gte } from 'drizzle-orm'
 import { Hono } from 'hono'
 import { createMiddleware } from 'hono/factory'
 import { z } from 'zod'
@@ -57,6 +57,20 @@ app.on(['GET', 'POST'], '/auth/*', (c) => auth.handler(c.req.raw))
 // Everything below requires a signed-in user.
 app.use('/records/*', requireUser)
 app.use('/preferences', requireUser)
+app.use('/progress', requireUser)
+
+// Chapters of a dictionary the user has finished at least once (review sessions excluded).
+app.get('/progress', async (c) => {
+  const dict = c.req.query('dict')
+  if (!dict || dict.length > 200) {
+    return c.json({ error: 'Missing dict' }, 400)
+  }
+  const rows = await db
+    .selectDistinct({ chapter: chapterRecord.chapter })
+    .from(chapterRecord)
+    .where(and(eq(chapterRecord.userId, c.get('userId')), eq(chapterRecord.dict, dict), gte(chapterRecord.chapter, 0)))
+  return c.json({ completedChapters: rows.map((row) => row.chapter).sort((a, b) => (a ?? 0) - (b ?? 0)) })
+})
 
 app.get('/preferences', async (c) => {
   const [row] = await db

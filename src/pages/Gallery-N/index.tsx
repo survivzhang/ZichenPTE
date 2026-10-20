@@ -2,14 +2,14 @@ import type { CategoryGroup } from './CategoryAccordion'
 import CategoryAccordion, { CategoryPath, DictGrid } from './CategoryAccordion'
 import DictRequest from './DictRequest'
 import Layout from '@/components/Layout'
+import useGoBack from '@/hooks/useGoBack'
 import { dictionaries } from '@/resources/dictionary'
 import { currentDictInfoAtom } from '@/store'
 import groupBy, { groupByDictTags } from '@/utils/groupBy'
 import * as ScrollArea from '@radix-ui/react-scroll-area'
 import { useAtomValue } from 'jotai'
-import { useCallback, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useHotkeys } from 'react-hotkeys-hook'
-import { useNavigate } from 'react-router-dom'
 import IconInfo from '~icons/ic/outline-info'
 import IconX from '~icons/tabler/x'
 
@@ -19,7 +19,6 @@ const FEATURED = { category: '国际考试', tag: 'PTE' }
 const isFeatured = (category: string, tag: string) => category === FEATURED.category && tag === FEATURED.tag
 
 export default function GalleryPage() {
-  const navigate = useNavigate()
   const currentDictInfo = useAtomValue(currentDictInfoAtom)
 
   const { featuredDicts, otherGroups } = useMemo(() => {
@@ -45,9 +44,7 @@ export default function GalleryPage() {
       : undefined
   })
 
-  const onBack = useCallback(() => {
-    navigate('/')
-  }, [navigate])
+  const onBack = useGoBack()
 
   useHotkeys('enter,esc', onBack, { preventDefault: true })
 

@@ -6,12 +6,12 @@ import Pagination, { ITEM_PER_PAGE } from './Pagination'
 import RowDetail from './RowDetail'
 import { currentRowDetailAtom } from './store'
 import type { groupedWordRecords } from './type'
+import useGoBack from '@/hooks/useGoBack'
 import { db, useDeleteWordRecord } from '@/utils/db'
 import type { WordRecord } from '@/utils/db/record'
 import * as ScrollArea from '@radix-ui/react-scroll-area'
 import { useAtomValue } from 'jotai'
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import IconX from '~icons/tabler/x'
 
 export function ErrorBook() {
@@ -19,14 +19,11 @@ export function ErrorBook() {
   const [currentPage, setCurrentPage] = useState(1)
   const totalPages = useMemo(() => Math.ceil(groupedRecords.length / ITEM_PER_PAGE), [groupedRecords.length])
   const [sortType, setSortType] = useState<ISortType>('asc')
-  const navigate = useNavigate()
   const currentRowDetail = useAtomValue(currentRowDetailAtom)
   const { deleteWordRecord } = useDeleteWordRecord()
   const [reload, setReload] = useState(false)
 
-  const onBack = useCallback(() => {
-    navigate('/')
-  }, [navigate])
+  const onBack = useGoBack()
 
   const setPage = useCallback(
     (page: number) => {

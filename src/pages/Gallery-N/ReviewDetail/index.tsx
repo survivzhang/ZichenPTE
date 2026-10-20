@@ -22,7 +22,7 @@ export function ReviewDetail({ errorData, dict }: { errorData: TErrorWordData[];
 
     const record = await generateNewWordReviewRecord(dict.id, errorData)
     setReviewModeInfo({ isReviewMode: true, reviewRecord: record })
-    navigate('/')
+    navigate('/practice')
   }
 
   const continueReview = () => {
@@ -30,7 +30,7 @@ export function ReviewDetail({ errorData, dict }: { errorData: TErrorWordData[];
     setCurrentChapter(-1)
 
     setReviewModeInfo({ isReviewMode: true, reviewRecord: latestReviewRecord })
-    navigate('/')
+    navigate('/practice')
   }
 
   return (
