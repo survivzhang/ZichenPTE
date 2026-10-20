@@ -1,4 +1,4 @@
-import { TypingContext } from '../../store'
+import { TypingContext, getFirstTryStats } from '../../store'
 import shareImage1 from '@/assets/sharePic/image-1.png'
 import shareImage2 from '@/assets/sharePic/image-2.png'
 import shareImage3 from '@/assets/sharePic/image-3.png'
@@ -169,7 +169,7 @@ export default function SharePicDialog({ showState, setShowState, randomChoose }
               <div className="text-center text-xs text-gray-500">{promote.sentence}</div>
               <div className="mx-4 mt-6 flex rounded-xl bg-white px-4 py-3 opacity-50 shadow-xl">
                 <DataBox data={state.timerData.time + ''} description="用时" />
-                <DataBox data={state.timerData.accuracy + '%'} description="正确率" />
+                <DataBox data={getFirstTryStats(state).percent + '%'} description="第一遍正确率" />
                 <DataBox data={state.timerData.wpm + ''} description="WPM" />
               </div>
               <div className="ml-5 mt-4 self-start text-base text-gray-800">{currentDictInfo.name}</div>

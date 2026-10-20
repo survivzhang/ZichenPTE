@@ -17,7 +17,7 @@ export default function Speed() {
       <InfoBox info={inputNumber + ''} description="输入数" />
       <InfoBox info={state.timerData.wpm + ''} description="WPM" />
       <InfoBox info={state.chapterData.correctCount + ''} description="正确数" />
-      <InfoBox info={state.timerData.accuracy + ''} description="正确率" />
+      <InfoBox info={state.timerData.accuracy + ''} description="按键正确率" />
     </div>
   )
 }

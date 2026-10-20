@@ -207,3 +207,14 @@ export const typingReducer = (state: TypingState, action: TypingStateAction) => 
 }
 
 export const TypingContext = createContext<{ state: TypingState; dispatch: Dispatch } | null>(null)
+
+/**
+ * Words typed right on the first try (no wrong key before finishing), out of
+ * the chapter's words. Unlike timerData.accuracy, which counts keystrokes,
+ * this is what review scheduling is based on.
+ */
+export function getFirstTryStats(state: TypingState) {
+  const total = state.chapterData.words.length
+  const correct = state.chapterData.userInputLogs.filter((log) => log.correctCount > 0 && log.wrongCount === 0).length
+  return { correct, total, percent: total ? Math.round((correct / total) * 100) : 0 }
+}

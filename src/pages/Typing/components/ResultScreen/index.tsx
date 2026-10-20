@@ -1,4 +1,4 @@
-import { TypingContext, TypingStateActionType } from '../../store'
+import { TypingContext, TypingStateActionType, getFirstTryStats } from '../../store'
 import ShareButton from '../ShareButton'
 import { AuthorButton } from './AuthorButton'
 import ConclusionBar from './ConclusionBar'
@@ -88,6 +88,8 @@ const ResultScreen = () => {
     }
   }, [correctRate])
 
+  const firstTry = useMemo(() => getFirstTryStats(state), [state])
+
   const timeString = useMemo(() => {
     const seconds = state.timerData.time
     const minutes = Math.floor(seconds / 60)
@@ -160,7 +162,11 @@ const ResultScreen = () => {
             </button>
             <div className="mt-10 flex flex-row gap-2 overflow-hidden">
               <div className="flex flex-shrink-0 flex-grow-0 flex-col gap-3 px-4 sm:px-1 md:px-2 lg:px-4">
-                <RemarkRing remark={`${state.timerData.accuracy}%`} caption="正确率" percentage={state.timerData.accuracy} />
+                <RemarkRing
+                  remark={`${firstTry.percent}%`}
+                  caption={`第一遍正确率 · ${firstTry.correct}/${firstTry.total} 词`}
+                  percentage={firstTry.percent}
+                />
                 <RemarkRing remark={timeString} caption="章节耗时" />
                 <RemarkRing remark={state.timerData.wpm + ''} caption="WPM" />
               </div>
