@@ -6,7 +6,7 @@ import RemarkRing from './RemarkRing'
 import WordChip from './WordChip'
 import styles from './index.module.css'
 import Tooltip from '@/components/Tooltip'
-import { currentChapterAtom, currentDictInfoAtom, infoPanelStateAtom, randomConfigAtom, wordDictationConfigAtom } from '@/store'
+import { currentChapterAtom, currentDictInfoAtom, infoPanelStateAtom, randomConfigAtom } from '@/store'
 import type { InfoPanelType } from '@/typings'
 import { Transition } from '@headlessui/react'
 import { useAtom, useAtomValue, useSetAtom } from 'jotai'
@@ -23,7 +23,6 @@ const ResultScreen = () => {
   // eslint-disable-next-line  @typescript-eslint/no-non-null-assertion
   const { state, dispatch } = useContext(TypingContext)!
 
-  const setWordDictationConfig = useSetAtom(wordDictationConfigAtom)
   const currentDictInfo = useAtomValue(currentDictInfoAtom)
   const [currentChapter, setCurrentChapter] = useAtom(currentChapterAtom)
   const setInfoPanelState = useSetAtom(infoPanelStateAtom)
@@ -98,37 +97,17 @@ const ResultScreen = () => {
     return `${minuteString}:${secondString}`
   }, [state.timerData.time])
 
+  // Practice is always spelled from memory, so repeating a chapter is the dictation.
   const repeatButtonHandler = useCallback(async () => {
-    setWordDictationConfig((old) => {
-      if (old.isOpen) {
-        if (old.openBy === 'auto') {
-          return { ...old, isOpen: false }
-        }
-      }
-      return old
-    })
     dispatch({ type: TypingStateActionType.REPEAT_CHAPTER, shouldShuffle: randomConfig.isOpen })
-  }, [setWordDictationConfig, dispatch, randomConfig.isOpen])
-
-  const dictationButtonHandler = useCallback(async () => {
-    setWordDictationConfig((old) => ({ ...old, isOpen: true, openBy: 'auto' }))
-    dispatch({ type: TypingStateActionType.REPEAT_CHAPTER, shouldShuffle: randomConfig.isOpen })
-  }, [setWordDictationConfig, dispatch, randomConfig.isOpen])
+  }, [dispatch, randomConfig.isOpen])
 
   const nextButtonHandler = useCallback(() => {
-    setWordDictationConfig((old) => {
-      if (old.isOpen) {
-        if (old.openBy === 'auto') {
-          return { ...old, isOpen: false }
-        }
-      }
-      return old
-    })
     if (!isLastChapter) {
       setCurrentChapter((old) => old + 1)
       dispatch({ type: TypingStateActionType.NEXT_CHAPTER })
     }
-  }, [dispatch, isLastChapter, setCurrentChapter, setWordDictationConfig])
+  }, [dispatch, isLastChapter, setCurrentChapter])
 
   const exitButtonHandler = useCallback(() => {
     dispatch({ type: TypingStateActionType.REPEAT_CHAPTER, shouldShuffle: false })
@@ -148,14 +127,6 @@ const ResultScreen = () => {
       // 火狐浏览器的阻止事件无效，会导致按空格键后 再次输入正确的第一个字母会报错
       e.stopPropagation()
       repeatButtonHandler()
-    },
-    { preventDefault: true },
-  )
-
-  useHotkeys(
-    'shift+enter',
-    () => {
-      dictationButtonHandler()
     },
     { preventDefault: true },
   )
@@ -246,16 +217,6 @@ const ResultScreen = () => {
               </div>
             </div>
             <div className="mt-10 flex w-full justify-center gap-5 px-5 text-xl">
-              <Tooltip content="快捷键：shift + enter">
-                <button
-                  className="my-btn-primary h-12 border-2 border-solid border-gray-300 bg-white text-base text-gray-700 dark:border-gray-700 dark:bg-gray-600 dark:text-white dark:hover:bg-gray-700"
-                  type="button"
-                  onClick={dictationButtonHandler}
-                  title="默写本章节"
-                >
-                  默写本章节
-                </button>
-              </Tooltip>
               <Tooltip content="快捷键：space">
                 <button
                   className="my-btn-primary h-12 border-2 border-solid border-gray-300 bg-white text-base text-gray-700 dark:border-gray-700 dark:bg-gray-600 dark:text-white dark:hover:bg-gray-700"

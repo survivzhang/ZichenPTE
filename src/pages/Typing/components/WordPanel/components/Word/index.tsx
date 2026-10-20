@@ -19,30 +19,24 @@ import {
   currentDictInfoAtom,
   hintUnlockedAtom,
   isIgnoreCaseAtom,
-  isShowAnswerOnHoverAtom,
   isTextSelectableAtom,
   pronunciationIsOpenAtom,
-  wordDictationConfigAtom,
 } from '@/store'
 import type { Word } from '@/typings'
 import { CTRL, getUtcTimeString } from '@/utils'
 import { useSaveWordRecord } from '@/utils/db'
-import { useAtom, useAtomValue } from 'jotai'
+import { useAtomValue, useSetAtom } from 'jotai'
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { useHotkeys } from 'react-hotkeys-hook'
 import { useImmer } from 'use-immer'
-
-const vowelLetters = ['A', 'E', 'I', 'O', 'U']
 
 export default function WordComponent({ word, onFinish }: { word: Word; onFinish: () => void }) {
   // eslint-disable-next-line  @typescript-eslint/no-non-null-assertion
   const { state, dispatch } = useContext(TypingContext)!
   const [wordState, setWordState] = useImmer<WordState>(structuredClone(initialWordState))
 
-  const wordDictationConfig = useAtomValue(wordDictationConfigAtom)
   const isTextSelectable = useAtomValue(isTextSelectableAtom)
   const isIgnoreCase = useAtomValue(isIgnoreCaseAtom)
-  const isShowAnswerOnHover = useAtomValue(isShowAnswerOnHoverAtom)
   const saveWordRecord = useSaveWordRecord()
   const [playKeySound, playBeepSound, playHintSound] = useKeySounds()
   const pronunciationIsOpen = useAtomValue(pronunciationIsOpenAtom)
@@ -55,7 +49,9 @@ export default function WordComponent({ word, onFinish }: { word: Word; onFinish
   const wordPronunciationIconRef = useRef<WordPronunciationIconRef>(null)
 
   // Hints (seeing the answer on hover, FIB audio, the meaning of FIB/WFD) unlock only after a mistake.
-  const [isHintUnlocked, setIsHintUnlocked] = useAtom(hintUnlockedAtom)
+  const isHintUnlocked = wordState.hasMadeInputWrong
+  const setHintUnlocked = useSetAtom(hintUnlockedAtom)
+  useEffect(() => setHintUnlocked(isHintUnlocked), [isHintUnlocked, setHintUnlocked])
   const sentenceAudio = useSentenceAudio(word.speakText)
   const isSentence = word.kind === 'fib' || word.kind === 'wfd'
   // FIB tests the collocation itself, so it stays silent until the first mistake.
@@ -86,8 +82,7 @@ export default function WordComponent({ word, onFinish }: { word: Word; onFinish
     newWordState.startTime = getUtcTimeString()
     newWordState.randomLetterVisible = headword.split('').map(() => Math.random() > 0.4)
     setWordState(newWordState)
-    setIsHintUnlocked(false)
-  }, [word, setWordState, setIsHintUnlocked])
+  }, [word, setWordState])
 
   const updateInput = useCallback(
     (updateAction: WordUpdateAction) => {
@@ -169,39 +164,11 @@ export default function WordComponent({ word, onFinish }: { word: Word; onFinish
     return groups
   }, [wordState.displayWord])
 
+  // Always spelled from memory: only correctly typed letters show. After the first mistake the
+  // answer can be peeked at by hovering or holding Tab, but it never shows on its own.
   const getLetterVisible = useCallback(
-    (index: number) => {
-      if (wordState.letterStates[index] === 'correct') return true
-      // Spell from memory: nothing is shown until the first mistake unlocks hints.
-      if (!isHintUnlocked) return false
-      if (isShowAnswerOnHover && isHoveringWord) return true
-
-      if (wordDictationConfig.isOpen) {
-        if (wordDictationConfig.type === 'hideAll') return false
-
-        const letter = wordState.displayWord[index]
-        if (wordDictationConfig.type === 'hideVowel') {
-          return vowelLetters.includes(letter.toUpperCase()) ? false : true
-        }
-        if (wordDictationConfig.type === 'hideConsonant') {
-          return vowelLetters.includes(letter.toUpperCase()) ? true : false
-        }
-        if (wordDictationConfig.type === 'randomHide') {
-          return wordState.randomLetterVisible[index]
-        }
-      }
-      return true
-    },
-    [
-      isHintUnlocked,
-      isHoveringWord,
-      isShowAnswerOnHover,
-      wordDictationConfig.isOpen,
-      wordDictationConfig.type,
-      wordState.displayWord,
-      wordState.letterStates,
-      wordState.randomLetterVisible,
-    ],
+    (index: number) => wordState.letterStates[index] === 'correct' || (isHintUnlocked && isHoveringWord),
+    [isHintUnlocked, isHoveringWord, wordState.letterStates],
   )
 
   useEffect(() => {
@@ -267,8 +234,6 @@ export default function WordComponent({ word, onFinish }: { word: Word; onFinish
         dispatch({ type: TypingStateActionType.REPORT_WRONG_WORD, payload: { letterMistake: currentState.letterMistake } })
       })
 
-      setIsHintUnlocked(true)
-
       if (currentChapter === 0 && state.chapterData.index === 0 && wordState.wrongCount >= 3) {
         setShowTipAlert(true)
       }
@@ -331,9 +296,7 @@ export default function WordComponent({ word, onFinish }: { word: Word; onFinish
         <div
           className={`tooltip-info relative ${
             isSentence ? 'w-full max-w-4xl px-12' : 'w-fit'
-          } bg-transparent p-0 leading-normal shadow-none dark:bg-transparent ${
-            wordDictationConfig.isOpen && isHintUnlocked ? 'tooltip' : ''
-          }`}
+          } bg-transparent p-0 leading-normal shadow-none dark:bg-transparent ${isHintUnlocked ? 'tooltip' : ''}`}
           data-tip="按 Tab 快捷键显示完整答案"
         >
           {isSentence ? (

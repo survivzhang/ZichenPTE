@@ -50,11 +50,27 @@ export const hintSoundsConfigAtom = atomForConfig('hintSoundsConfig', {
   correctResource: correctSoundResources[0],
 })
 
+// British English became the default on 2026-10-20: switch settings saved before that once.
+// Afterwards whatever the user picks is kept.
+try {
+  if (!localStorage.getItem('britishDefaultsApplied')) {
+    const switchToUk = (key: string, extra: Record<string, unknown> = {}) => {
+      const saved = localStorage.getItem(key)
+      if (saved) localStorage.setItem(key, JSON.stringify({ ...JSON.parse(saved), type: 'uk', ...extra }))
+    }
+    switchToUk('pronunciation', { name: '英音' })
+    switchToUk('phoneticConfig')
+    localStorage.setItem('britishDefaultsApplied', '1')
+  }
+} catch {
+  // storage unavailable or malformed; defaults apply
+}
+
 export const pronunciationConfigAtom = atomForConfig('pronunciation', {
   isOpen: true,
   volume: 1,
-  type: 'us' as PronunciationType,
-  name: '美音',
+  type: 'uk' as PronunciationType,
+  name: '英音',
   isLoop: false,
   isTransRead: false,
   transVolume: 1,
@@ -81,7 +97,7 @@ export const isTextSelectableAtom = atomWithStorage('isTextSelectable', false)
 
 export const phoneticConfigAtom = atomForConfig('phoneticConfig', {
   isOpen: true,
-  type: 'us' as PhoneticType,
+  type: 'uk' as PhoneticType,
 })
 
 export const isOpenDarkModeAtom = atomWithStorage('isOpenDarkModeAtom', window.matchMedia('(prefers-color-scheme: dark)').matches)

@@ -20,7 +20,7 @@ import { useSaveChapterRecord } from '@/utils/db'
 import { useDueReviews } from '@/utils/review'
 import { useAtom, useAtomValue, useSetAtom } from 'jotai'
 import type React from 'react'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useImmerReducer } from 'use-immer'
 
 const App: React.FC = () => {
@@ -62,14 +62,26 @@ const App: React.FC = () => {
     dispatch({ type: TypingStateActionType.SKIP_WORD })
   }, [dispatch])
 
+  // Leaving the window (another app, a screenshot) pauses the timer; coming back resumes it,
+  // unless practice was already paused before leaving.
+  const isTypingRef = useRef(state.isTyping)
+  isTypingRef.current = state.isTyping
   useEffect(() => {
+    let pausedByBlur = false
     const onBlur = () => {
+      pausedByBlur = isTypingRef.current
       dispatch({ type: TypingStateActionType.SET_IS_TYPING, payload: false })
     }
+    const onFocus = () => {
+      if (pausedByBlur) dispatch({ type: TypingStateActionType.SET_IS_TYPING, payload: true })
+      pausedByBlur = false
+    }
     window.addEventListener('blur', onBlur)
+    window.addEventListener('focus', onFocus)
 
     return () => {
       window.removeEventListener('blur', onBlur)
+      window.removeEventListener('focus', onFocus)
     }
   }, [dispatch])
 
