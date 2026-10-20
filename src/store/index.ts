@@ -9,6 +9,7 @@ import type {
   LoopWordTimesOption,
   PhoneticType,
   PronunciationType,
+  Word,
   WordDictationOpenBy,
   WordDictationType,
 } from '@/typings'
@@ -117,3 +118,9 @@ export const hasSeenEnhancedPromotionAtom = atomWithStorage('hasSeenEnhancedProm
 
 // for dev test
 //   dismissStartCardDateAtom = atom<Date | null>(new Date())
+
+// Records made during the daily review are filed under this pseudo-dictionary.
+export const SRS_REVIEW_DICT = 'srs-review'
+
+/** The daily FSRS review session; kept in memory, the due list is re-fetched from the server. */
+export const srsReviewAtom = atom<{ active: boolean; words: Word[] }>({ active: false, words: [] })

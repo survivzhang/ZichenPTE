@@ -1,6 +1,8 @@
 import { CHAPTER_LENGTH } from '@/constants'
-import { currentChapterAtom, currentDictInfoAtom, reviewModeInfoAtom } from '@/store'
+import { isPteDict, pteDictIds } from '@/resources/pte'
+import { currentChapterAtom, currentDictInfoAtom, reviewModeInfoAtom, srsReviewAtom } from '@/store'
 import type { Word, WordWithIndex } from '@/typings/index'
+import { getJSON } from '@/utils/api'
 import { wordListFetcher } from '@/utils/wordListFetcher'
 import { useAtom, useAtomValue } from 'jotai'
 import { useMemo } from 'react'
@@ -10,7 +12,11 @@ export type UseWordListResult = {
   words: WordWithIndex[]
   isLoading: boolean
   error: Error | undefined
+  // every word of this chapter was already practiced in another PTE dictionary
+  isChapterAllSkipped: boolean
 }
+
+const fetchPracticedWords = async (key: string) => new Set((await getJSON<{ words: string[] }>(key))?.words ?? [])
 
 /**
  * Use word lists from the current selected dictionary.
@@ -19,6 +25,17 @@ export function useWordList(): UseWordListResult {
   const currentDictInfo = useAtomValue(currentDictInfoAtom)
   const [currentChapter, setCurrentChapter] = useAtom(currentChapterAtom)
   const { isReviewMode, reviewRecord } = useAtomValue(reviewModeInfoAtom)
+  const srsReview = useAtomValue(srsReviewAtom)
+
+  // PTE dictionaries share words: skip ones already practiced in another PTE dictionary.
+  const otherPteDicts =
+    !srsReview.active && !isReviewMode && isPteDict(currentDictInfo) ? pteDictIds.filter((id) => id !== currentDictInfo.id) : []
+  const { data: practicedElsewhere } = useSWR(
+    otherPteDicts.length ? `/words/practiced?dicts=${otherPteDicts.join(',')}` : null,
+    fetchPracticedWords,
+    { revalidateOnFocus: false },
+  )
+  const isWaitingForPracticed = otherPteDicts.length > 0 && !practicedElsewhere
 
   // Reset current chapter to 0, when currentChapter is greater than chapterCount.
   if (currentChapter >= currentDictInfo.chapterCount) {
@@ -30,12 +47,19 @@ export function useWordList(): UseWordListResult {
 
   const words: WordWithIndex[] = useMemo(() => {
     let newWords: Word[]
-    if (isFirstChapter) {
+    if (srsReview.active) {
+      newWords = srsReview.words
+    } else if (isWaitingForPracticed) {
+      newWords = []
+    } else if (isFirstChapter) {
       newWords = firstChapter
     } else if (isReviewMode) {
       newWords = reviewRecord?.words ?? []
     } else if (wordList) {
       newWords = wordList.slice(currentChapter * CHAPTER_LENGTH, (currentChapter + 1) * CHAPTER_LENGTH)
+      if (practicedElsewhere) {
+        newWords = newWords.filter((word) => !practicedElsewhere.has(word.name.toLowerCase()))
+      }
     } else {
       newWords = []
     }
@@ -56,9 +80,11 @@ export function useWordList(): UseWordListResult {
         trans,
       }
     })
-  }, [isFirstChapter, isReviewMode, wordList, reviewRecord?.words, currentChapter])
+  }, [srsReview, isWaitingForPracticed, practicedElsewhere, isFirstChapter, isReviewMode, wordList, reviewRecord?.words, currentChapter])
 
-  return { words, isLoading, error }
+  const isChapterAllSkipped = !srsReview.active && !!wordList && !!practicedElsewhere && words.length === 0
+
+  return { words, isLoading: isLoading || isWaitingForPracticed, error, isChapterAllSkipped }
 }
 
 const firstChapter = [

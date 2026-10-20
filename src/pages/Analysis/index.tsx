@@ -2,6 +2,7 @@ import HeatmapCharts from './components/HeatmapCharts'
 import KeyboardWithBarCharts from './components/KeyboardWithBarCharts'
 import LineCharts from './components/LineCharts'
 import { useWordStats } from './hooks/useWordStats'
+import AppNav from '@/components/AppNav'
 import Layout from '@/components/Layout'
 import useGoBack from '@/hooks/useGoBack'
 import { isOpenDarkModeAtom } from '@/store'
@@ -9,7 +10,6 @@ import * as ScrollArea from '@radix-ui/react-scroll-area'
 import dayjs from 'dayjs'
 import { useAtom } from 'jotai'
 import { useHotkeys } from 'react-hotkeys-hook'
-import IconX from '~icons/tabler/x'
 
 const Analysis = () => {
   const [, setIsOpenDarkMode] = useAtom(isOpenDarkModeAtom)
@@ -38,8 +38,8 @@ const Analysis = () => {
 
   return (
     <Layout>
-      <div className="flex w-full flex-1 flex-col overflow-y-auto pl-20 pr-20 pt-20">
-        <IconX className="absolute right-20 top-10 mr-2 h-7 w-7 cursor-pointer text-gray-400" onClick={onBack} />
+      <AppNav />
+      <div className="flex w-full flex-1 flex-col overflow-y-auto pl-20 pr-20">
         <ScrollArea.Root className="flex-1 overflow-y-auto">
           <ScrollArea.Viewport className="h-full w-auto pb-[20rem] [&>div]:!block">
             {isEmpty ? (

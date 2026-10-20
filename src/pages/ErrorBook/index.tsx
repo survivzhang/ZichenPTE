@@ -1,132 +1,176 @@
-import DropdownExport from './DropdownExport'
-import ErrorRow from './ErrorRow'
-import type { ISortType } from './HeadWrongNumber'
-import HeadWrongNumber from './HeadWrongNumber'
-import Pagination, { ITEM_PER_PAGE } from './Pagination'
-import RowDetail from './RowDetail'
-import { currentRowDetailAtom } from './store'
-import type { groupedWordRecords } from './type'
-import useGoBack from '@/hooks/useGoBack'
-import { db, useDeleteWordRecord } from '@/utils/db'
-import type { WordRecord } from '@/utils/db/record'
-import * as ScrollArea from '@radix-ui/react-scroll-area'
-import { useAtomValue } from 'jotai'
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import IconX from '~icons/tabler/x'
+import AppNav from '@/components/AppNav'
+import Layout from '@/components/Layout'
+import useStartReview from '@/hooks/useStartReview'
+import { getJSON } from '@/utils/api'
+import { endOfToday, useDueReviews } from '@/utils/review'
+import { useMemo, useState } from 'react'
+import useSWR from 'swr'
+import IconArrowRight from '~icons/tabler/arrow-right'
+
+type HistoryEntry = { kind: 'learn' | 'review' | 'import'; correct: boolean; at: string }
+
+type ReviewCard = {
+  word: string
+  trans: string[]
+  usphone: string | null
+  ukphone: string | null
+  source: string
+  note: string | null
+  originDict: string | null
+  due: string
+  reps: number
+  lapses: number
+  history: HistoryEntry[]
+}
+
+const SOURCE_LABELS: Record<string, string> = {
+  typing: '打字',
+  listening: '听力',
+  speaking: '口语',
+  reading: '阅读',
+  writing: '写作',
+  other: '其他',
+}
+
+const FILTERS = [
+  { id: 'all', label: '全部' },
+  { id: 'due', label: '今日待复习' },
+  ...Object.entries(SOURCE_LABELS).map(([id, label]) => ({ id, label })),
+]
+
+/** "今天" / "明天" / "3 天后" / a date, by local calendar day. */
+function formatDue(due: string) {
+  const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()
+  const days = Math.round((startOfDay(new Date(due)) - startOfDay(new Date())) / 86400000)
+  if (days <= 0) return '今天'
+  if (days === 1) return '明天'
+  if (days < 30) return `${days} 天后`
+  return new Date(due).toLocaleDateString()
+}
+
+function HistoryChips({ history }: { history: HistoryEntry[] }) {
+  // Imports are not attempts, so they don't take a pass number.
+  let pass = 0
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      {history.map((entry, i) => {
+        if (entry.kind === 'import') {
+          return (
+            <span key={i} className="rounded-md bg-gray-100 px-2 py-0.5 text-xs text-gray-500 dark:bg-gray-700 dark:text-gray-300">
+              导入
+            </span>
+          )
+        }
+        pass++
+        return (
+          <span
+            key={i}
+            title={new Date(entry.at).toLocaleString()}
+            className={`rounded-md px-2 py-0.5 text-xs font-medium ${
+              entry.correct
+                ? 'bg-green-50 text-green-600 dark:bg-green-900/40 dark:text-green-300'
+                : 'bg-red-50 text-red-500 dark:bg-red-900/40 dark:text-red-300'
+            }`}
+          >
+            第{pass}遍 {entry.correct ? '✓' : '✗'}
+          </span>
+        )
+      })}
+    </div>
+  )
+}
 
 export function ErrorBook() {
-  const [groupedRecords, setGroupedRecords] = useState<groupedWordRecords[]>([])
-  const [currentPage, setCurrentPage] = useState(1)
-  const totalPages = useMemo(() => Math.ceil(groupedRecords.length / ITEM_PER_PAGE), [groupedRecords.length])
-  const [sortType, setSortType] = useState<ISortType>('asc')
-  const currentRowDetail = useAtomValue(currentRowDetailAtom)
-  const { deleteWordRecord } = useDeleteWordRecord()
-  const [reload, setReload] = useState(false)
+  const { data, isLoading } = useSWR('review-cards', () => getJSON<{ cards: ReviewCard[] }>('/review/cards'))
+  const { count: dueCount } = useDueReviews()
+  const startReview = useStartReview()
+  const [filter, setFilter] = useState('all')
 
-  const onBack = useGoBack()
-
-  const setPage = useCallback(
-    (page: number) => {
-      if (page < 1 || page > totalPages) return
-      setCurrentPage(page)
-    },
-    [totalPages],
-  )
-
-  const setSort = useCallback(
-    (sortType: ISortType) => {
-      setSortType(sortType)
-      setPage(1)
-    },
-    [setPage],
-  )
-
-  const sortedRecords = useMemo(() => {
-    if (sortType === 'none') return groupedRecords
-    return [...groupedRecords].sort((a, b) => {
-      if (sortType === 'asc') {
-        return a.wrongCount - b.wrongCount
-      } else {
-        return b.wrongCount - a.wrongCount
-      }
-    })
-  }, [groupedRecords, sortType])
-
-  const renderRecords = useMemo(() => {
-    const start = (currentPage - 1) * ITEM_PER_PAGE
-    const end = start + ITEM_PER_PAGE
-    return sortedRecords.slice(start, end)
-  }, [currentPage, sortedRecords])
-
-  useEffect(() => {
-    db.wordRecords
-      .where('wrongCount')
-      .above(0)
-      .toArray()
-      .then((records) => {
-        const groups: groupedWordRecords[] = []
-
-        records.forEach((record) => {
-          let group = groups.find((g) => g.word === record.word && g.dict === record.dict)
-          if (!group) {
-            group = { word: record.word, dict: record.dict, records: [], wrongCount: 0 }
-            groups.push(group)
-          }
-          group.records.push(record as WordRecord)
-        })
-
-        groups.forEach((group) => {
-          group.wrongCount = group.records.reduce((acc, cur) => {
-            acc += cur.wrongCount
-            return acc
-          }, 0)
-        })
-
-        setGroupedRecords(groups)
-      })
-  }, [reload])
-
-  const handleDelete = async (word: string, dict: string) => {
-    await deleteWordRecord(word, dict)
-    setReload((prev) => !prev)
-  }
+  const cards = useMemo(() => data?.cards ?? [], [data])
+  const visibleCards = useMemo(() => {
+    const todayEnd = endOfToday().getTime()
+    if (filter === 'all') return cards
+    if (filter === 'due') return cards.filter((card) => new Date(card.due).getTime() <= todayEnd)
+    return cards.filter((card) => card.source === filter)
+  }, [cards, filter])
 
   return (
-    <>
-      <div className={`relative flex h-screen w-full flex-col items-center pb-4 ease-in ${currentRowDetail && 'blur-sm'}`}>
-        <div className="mr-8 mt-4 flex w-auto items-center justify-center self-end">
-          <h1 className="font-lighter mr-4 w-auto self-end text-gray-500 opacity-70">Tip: 点击错误单词查看详细信息 </h1>
-          <IconX className="h-7 w-7 cursor-pointer text-gray-400" onClick={onBack} />
-        </div>
-
-        <div className="flex w-full flex-1 select-text items-start justify-center overflow-hidden">
-          <div className="flex h-full w-5/6 flex-col pt-10">
-            <div className="flex w-full justify-between rounded-lg bg-white px-6 py-5 text-lg text-black shadow-lg dark:bg-gray-800 dark:text-white">
-              <span className="basis-2/12">单词</span>
-              <span className="basis-6/12">释义</span>
-              <HeadWrongNumber className="basis-1/12" sortType={sortType} setSortType={setSort} />
-              <span className="basis-1/12">词典</span>
-              <DropdownExport renderRecords={sortedRecords} />
+    <Layout>
+      <AppNav />
+      <div className="flex w-full flex-1 flex-col items-center overflow-y-auto px-10 pb-10">
+        <div className="w-full max-w-6xl">
+          <div className="flex flex-wrap items-end justify-between gap-4">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">错题本</h1>
+              <p className="mt-1 text-gray-500 dark:text-gray-400">
+                共 {cards.length} 词 · 今日待复习 {dueCount ?? '…'} 词 · 第一遍就打对的词不会进入这里
+              </p>
             </div>
-            <ScrollArea.Root className="flex-1 overflow-y-auto pt-5">
-              <ScrollArea.Viewport className="h-full  ">
-                <div className="flex flex-col gap-3">
-                  {renderRecords.map((record) => (
-                    <ErrorRow
-                      key={`${record.dict}-${record.word}`}
-                      record={record}
-                      onDelete={() => handleDelete(record.word, record.dict)}
-                    />
-                  ))}
-                </div>
-              </ScrollArea.Viewport>
-              <ScrollArea.Scrollbar className="flex touch-none select-none bg-transparent" orientation="vertical"></ScrollArea.Scrollbar>
-            </ScrollArea.Root>
+            {!!dueCount && (
+              <button
+                type="button"
+                onClick={startReview}
+                className="inline-flex items-center rounded-xl bg-indigo-500 px-5 py-2.5 font-medium text-white transition hover:bg-indigo-600"
+              >
+                开始今日复习 · {dueCount} 词
+                <IconArrowRight className="ml-2 h-5 w-5" />
+              </button>
+            )}
+          </div>
+
+          <div className="mt-6 flex flex-wrap gap-2">
+            {FILTERS.map(({ id, label }) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => setFilter(id)}
+                className={`rounded-full px-4 py-1.5 text-sm transition ${
+                  filter === id
+                    ? 'bg-indigo-500 text-white'
+                    : 'bg-white text-gray-600 hover:bg-indigo-50 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
+          <div className="mt-4 overflow-hidden rounded-2xl bg-white shadow-sm dark:bg-gray-800">
+            <table className="w-full text-left">
+              <thead className="bg-gray-50 text-sm text-gray-500 dark:bg-gray-900 dark:text-gray-400">
+                <tr>
+                  <th className="px-4 py-3 font-medium">单词</th>
+                  <th className="px-4 py-3 font-medium">释义</th>
+                  <th className="px-4 py-3 font-medium">来源</th>
+                  <th className="px-4 py-3 font-medium">学习记录</th>
+                  <th className="px-4 py-3 font-medium">下次复习</th>
+                </tr>
+              </thead>
+              <tbody>
+                {visibleCards.map((card) => (
+                  <tr key={card.word} className="border-t border-gray-100 align-top dark:border-gray-700">
+                    <td className="px-4 py-3">
+                      <div className="font-mono text-lg font-medium text-gray-800 dark:text-gray-100">{card.word}</div>
+                      {(card.usphone || card.ukphone) && <div className="text-xs text-gray-400">/{card.usphone || card.ukphone}/</div>}
+                    </td>
+                    <td className="max-w-xs px-4 py-3 text-sm text-gray-600 dark:text-gray-300">
+                      {card.trans.join('；') || '—'}
+                      {card.note && <div className="mt-1 text-xs text-gray-400">备注：{card.note}</div>}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">{SOURCE_LABELS[card.source] ?? card.source}</td>
+                    <td className="px-4 py-3">
+                      <HistoryChips history={card.history} />
+                    </td>
+                    <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-600 dark:text-gray-300">{formatDue(card.due)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {isLoading && <p className="px-4 py-6 text-center text-gray-400">加载中…</p>}
+            {!isLoading && visibleCards.length === 0 && <p className="px-4 py-6 text-center text-gray-400">这里还没有错词</p>}
           </div>
         </div>
-        <Pagination className="pt-3" page={currentPage} setPage={setPage} totalPages={totalPages} />
       </div>
-      {currentRowDetail && <RowDetail currentRowDetail={currentRowDetail} allRecords={sortedRecords} />}
-    </>
+    </Layout>
   )
 }

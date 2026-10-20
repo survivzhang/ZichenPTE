@@ -1,5 +1,6 @@
 import Tooltip from '@/components/Tooltip'
-import { currentChapterAtom, currentDictInfoAtom, isReviewModeAtom } from '@/store'
+import { isPteDict } from '@/resources/pte'
+import { currentChapterAtom, currentDictInfoAtom, isReviewModeAtom, srsReviewAtom } from '@/store'
 import range from '@/utils/range'
 import { Listbox, Transition } from '@headlessui/react'
 import { useAtom, useAtomValue } from 'jotai'
@@ -12,18 +13,23 @@ export const DictChapterButton = () => {
   const [currentChapter, setCurrentChapter] = useAtom(currentChapterAtom)
   const chapterCount = currentDictInfo.chapterCount
   const isReviewMode = useAtomValue(isReviewModeAtom)
+  const srsReview = useAtomValue(srsReviewAtom)
 
   const handleKeyDown: React.KeyboardEventHandler<HTMLButtonElement> = (event) => {
     if (event.key === ' ') {
       event.preventDefault()
     }
   }
+  if (srsReview.active) {
+    return <span className="px-3 py-1 text-lg text-indigo-500 dark:text-indigo-300">今日复习 · {srsReview.words.length} 词</span>
+  }
+
   return (
     <>
       <Tooltip content="词典切换">
         <NavLink
           className="block rounded-lg px-3 py-1 text-lg transition-colors duration-300 ease-in-out hover:bg-indigo-400 hover:text-white focus:outline-none dark:text-white dark:text-opacity-60 dark:hover:text-opacity-100"
-          to="/gallery"
+          to={isPteDict(currentDictInfo) ? '/' : '/gallery'}
         >
           {currentDictInfo.name} {isReviewMode && '错题复习'}
         </NavLink>

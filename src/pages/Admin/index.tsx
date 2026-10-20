@@ -1,10 +1,11 @@
+import AppNav from '@/components/AppNav'
 import Layout from '@/components/Layout'
 import useGoBack from '@/hooks/useGoBack'
+import { deleteJSON, getJSON, postJSON } from '@/utils/api'
 import { authClient } from '@/utils/auth-client'
 import type { FormEvent } from 'react'
 import { useCallback, useEffect, useState } from 'react'
 import { useHotkeys } from 'react-hotkeys-hook'
-import IconX from '~icons/tabler/x'
 
 type Role = 'user' | 'admin'
 
@@ -235,6 +236,145 @@ function UserRow({ user, isSelf, onChanged }: { user: AdminUser; isSelf: boolean
   )
 }
 
+type ApiKeyRow = { id: string; name: string; prefix: string; createdAt: string; lastUsedAt: string | null }
+
+/** Keys for the /api/v1 import API (see docs/API.md). The full key is shown only once, right after creation. */
+function ApiKeysSection() {
+  const [keys, setKeys] = useState<ApiKeyRow[]>([])
+  const [name, setName] = useState('')
+  const [newKey, setNewKey] = useState<string | null>(null)
+  const [copied, setCopied] = useState(false)
+  const [confirmRevokeId, setConfirmRevokeId] = useState<string | null>(null)
+
+  const loadKeys = useCallback(async () => {
+    const data = await getJSON<{ keys: ApiKeyRow[] }>('/api-keys')
+    if (data) setKeys(data.keys)
+  }, [])
+
+  useEffect(() => {
+    loadKeys()
+  }, [loadKeys])
+
+  const createKey = async (e: FormEvent) => {
+    e.preventDefault()
+    if (!name.trim()) return
+    const created = await postJSON<{ key: string }>('/api-keys', { name: name.trim() })
+    if (created) {
+      setNewKey(created.key)
+      setCopied(false)
+      setName('')
+      loadKeys()
+    }
+  }
+
+  const revokeKey = async (id: string) => {
+    await deleteJSON(`/api-keys/${id}`)
+    setConfirmRevokeId(null)
+    loadKeys()
+  }
+
+  const copyKey = async () => {
+    if (!newKey) return
+    try {
+      await navigator.clipboard.writeText(newKey)
+      setCopied(true)
+    } catch {
+      setCopied(false)
+    }
+  }
+
+  return (
+    <div className="rounded-2xl bg-white p-6 shadow-sm dark:bg-gray-800">
+      <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100">API 密钥</h2>
+      <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+        用于脚本或 Claude 通过 /api/v1 导入错词（用法见仓库里的 docs/API.md）。密钥拥有管理员权限，请妥善保管。
+      </p>
+
+      <form onSubmit={createKey} className="mt-4 flex gap-3">
+        <input
+          type="text"
+          placeholder="密钥名称，例如：Claude 导入"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          className={inputClass}
+        />
+        <button type="submit" className={`${primaryButtonClass} whitespace-nowrap`}>
+          生成密钥
+        </button>
+      </form>
+
+      {newKey && (
+        <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-4 dark:border-amber-700 dark:bg-amber-900/30">
+          <p className="text-sm font-medium text-amber-700 dark:text-amber-300">这是唯一一次显示完整密钥，请现在复制保存：</p>
+          <div className="mt-2 flex items-center gap-2">
+            <code className="flex-1 break-all rounded bg-white px-3 py-2 font-mono text-sm text-gray-800 dark:bg-gray-900 dark:text-gray-100">
+              {newKey}
+            </code>
+            <button type="button" onClick={copyKey} className={`${smallButtonClass} bg-amber-500 text-white hover:bg-amber-600`}>
+              {copied ? '已复制' : '复制'}
+            </button>
+          </div>
+          <button type="button" onClick={() => setNewKey(null)} className="mt-2 text-xs text-amber-700 hover:underline dark:text-amber-300">
+            我已保存，隐藏
+          </button>
+        </div>
+      )}
+
+      {keys.length > 0 && (
+        <table className="mt-4 w-full text-left text-sm">
+          <thead className="text-gray-500 dark:text-gray-400">
+            <tr>
+              <th className="py-2 font-medium">名称</th>
+              <th className="py-2 font-medium">密钥</th>
+              <th className="py-2 font-medium">创建时间</th>
+              <th className="py-2 font-medium">最近使用</th>
+              <th className="py-2 font-medium">操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            {keys.map((key) => (
+              <tr key={key.id} className="border-t border-gray-100 dark:border-gray-700">
+                <td className="py-2 text-gray-800 dark:text-gray-100">{key.name}</td>
+                <td className="py-2 font-mono text-gray-500">{key.prefix}…</td>
+                <td className="py-2 text-gray-500">{new Date(key.createdAt).toLocaleDateString()}</td>
+                <td className="py-2 text-gray-500">{key.lastUsedAt ? new Date(key.lastUsedAt).toLocaleString() : '从未'}</td>
+                <td className="py-2">
+                  {confirmRevokeId === key.id ? (
+                    <span className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => revokeKey(key.id)}
+                        className={`${smallButtonClass} bg-red-500 text-white hover:bg-red-600`}
+                      >
+                        确认吊销
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setConfirmRevokeId(null)}
+                        className={`${smallButtonClass} text-gray-500 hover:bg-gray-100`}
+                      >
+                        取消
+                      </button>
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setConfirmRevokeId(key.id)}
+                      className={`${smallButtonClass} text-red-500 hover:bg-red-50 dark:hover:bg-gray-700`}
+                    >
+                      吊销
+                    </button>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </div>
+  )
+}
+
 export default function AdminPage() {
   const { data: session } = authClient.useSession()
   const [users, setUsers] = useState<AdminUser[]>([])
@@ -259,8 +399,8 @@ export default function AdminPage() {
 
   return (
     <Layout>
-      <div className="relative flex w-full flex-1 flex-col items-center overflow-y-auto px-6 pt-20">
-        <IconX className="absolute right-20 top-10 mr-2 h-7 w-7 cursor-pointer text-gray-400" onClick={onBack} />
+      <AppNav />
+      <div className="relative flex w-full flex-1 flex-col items-center overflow-y-auto px-6">
         <div className="w-full max-w-4xl space-y-6 pb-10">
           <div>
             <h1 className="text-2xl font-bold text-indigo-500">用户管理</h1>
@@ -287,6 +427,8 @@ export default function AdminPage() {
             </table>
             {loadError && <p className="px-4 py-3 text-sm text-red-500">{loadError}</p>}
           </div>
+
+          <ApiKeysSection />
         </div>
       </div>
     </Layout>

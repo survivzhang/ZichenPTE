@@ -2,6 +2,7 @@ import Layout from '../../components/Layout'
 import { DictChapterButton } from './components/DictChapterButton'
 import PronunciationSwitcher from './components/PronunciationSwitcher'
 import ResultScreen from './components/ResultScreen'
+import { ChapterSkippedPanel, ReviewDoneScreen, ReviewGate } from './components/ReviewPanels'
 import Speed from './components/Speed'
 import StartButton from './components/StartButton'
 import Switcher from './components/Switcher'
@@ -14,9 +15,18 @@ import { DonateCard } from '@/components/DonateCard'
 import Header from '@/components/Header'
 import Tooltip from '@/components/Tooltip'
 import { idDictionaryMap } from '@/resources/dictionary'
-import { DEFAULT_DICT_ID, currentChapterAtom, currentDictIdAtom, isReviewModeAtom, randomConfigAtom, reviewModeInfoAtom } from '@/store'
+import {
+  DEFAULT_DICT_ID,
+  currentChapterAtom,
+  currentDictIdAtom,
+  isReviewModeAtom,
+  randomConfigAtom,
+  reviewModeInfoAtom,
+  srsReviewAtom,
+} from '@/store'
 import { IsDesktop, isLegal } from '@/utils'
 import { useSaveChapterRecord } from '@/utils/db'
+import { useDueReviews } from '@/utils/review'
 import { useAtom, useAtomValue, useSetAtom } from 'jotai'
 import type React from 'react'
 import { useCallback, useEffect, useState } from 'react'
@@ -25,7 +35,11 @@ import { useImmerReducer } from 'use-immer'
 const App: React.FC = () => {
   const [state, dispatch] = useImmerReducer(typingReducer, structuredClone(initialState))
   const [isLoading, setIsLoading] = useState<boolean>(true)
-  const { words } = useWordList()
+  const { words, isChapterAllSkipped } = useWordList()
+  const srsReview = useAtomValue(srsReviewAtom)
+  // Learning new words is locked until today's reviews are done.
+  const { count: dueCount } = useDueReviews()
+  const isGated = !srsReview.active && (dueCount ?? 0) > 0
 
   const [currentDictId, setCurrentDictId] = useAtom(currentDictIdAtom)
   const setCurrentChapter = useSetAtom(currentChapterAtom)
@@ -78,7 +92,7 @@ const App: React.FC = () => {
   useEffect(() => {
     if (!state.isTyping) {
       const onKeyDown = (e: KeyboardEvent) => {
-        if (!isLoading && e.key !== 'Enter' && (isLegal(e.key) || e.key === ' ') && !e.altKey && !e.ctrlKey && !e.metaKey) {
+        if (!isLoading && !isGated && e.key !== 'Enter' && (isLegal(e.key) || e.key === ' ') && !e.altKey && !e.ctrlKey && !e.metaKey) {
           e.preventDefault()
           dispatch({ type: TypingStateActionType.SET_IS_TYPING, payload: true })
         }
@@ -87,7 +101,7 @@ const App: React.FC = () => {
 
       return () => window.removeEventListener('keydown', onKeyDown)
     }
-  }, [state.isTyping, isLoading, dispatch])
+  }, [state.isTyping, isLoading, isGated, dispatch])
 
   useEffect(() => {
     if (words !== undefined) {
@@ -125,14 +139,20 @@ const App: React.FC = () => {
 
   return (
     <TypingContext.Provider value={{ state: state, dispatch }}>
-      {state.isFinished && <DonateCard />}
-      {state.isFinished && <ResultScreen />}
+      {state.isFinished && !srsReview.active && <DonateCard />}
+      {state.isFinished && !srsReview.active && <ResultScreen />}
+      {state.isFinished && srsReview.active && (
+        <ReviewDoneScreen
+          total={state.chapterData.words.length}
+          firstTryCorrect={state.chapterData.userInputLogs.filter((log) => log.correctCount > 0 && log.wrongCount === 0).length}
+        />
+      )}
       <Layout>
         <Header>
           <DictChapterButton />
           <PronunciationSwitcher />
           <Switcher />
-          <StartButton isLoading={isLoading} />
+          <StartButton isLoading={isLoading || isGated} />
           <Tooltip content="跳过该词">
             <button
               className={`${
@@ -147,7 +167,11 @@ const App: React.FC = () => {
         <div className="container mx-auto flex h-full flex-1 flex-col items-center justify-center pb-5">
           <div className="container relative mx-auto flex h-full flex-col items-center">
             <div className="container flex flex-grow items-center justify-center">
-              {isLoading ? (
+              {isGated ? (
+                <ReviewGate dueCount={dueCount ?? 0} />
+              ) : isChapterAllSkipped ? (
+                <ChapterSkippedPanel />
+              ) : isLoading ? (
                 <div className="flex flex-col items-center justify-center ">
                   <div
                     className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid  border-indigo-400 border-r-transparent align-[-0.125em] motion-reduce:animate-[spin_1.5s_linear_infinite]"

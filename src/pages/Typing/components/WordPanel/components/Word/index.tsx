@@ -258,6 +258,9 @@ export default function WordComponent({ word, onFinish }: { word: Word; onFinish
         wrongCount: wordState.wrongCount,
         letterTimeArray: wordState.letterTimeArray,
         letterMistake: wordState.letterMistake,
+        trans: word.trans,
+        usphone: word.usphone,
+        ukphone: word.ukphone,
       })
 
       onFinish()

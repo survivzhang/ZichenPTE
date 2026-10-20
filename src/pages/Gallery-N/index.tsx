@@ -1,9 +1,11 @@
 import type { CategoryGroup } from './CategoryAccordion'
-import CategoryAccordion, { CategoryPath, DictGrid } from './CategoryAccordion'
+import CategoryAccordion from './CategoryAccordion'
 import DictRequest from './DictRequest'
+import AppNav from '@/components/AppNav'
 import Layout from '@/components/Layout'
 import useGoBack from '@/hooks/useGoBack'
 import { dictionaries } from '@/resources/dictionary'
+import { PTE_CATEGORY, PTE_TAG } from '@/resources/pte'
 import { currentDictInfoAtom } from '@/store'
 import groupBy, { groupByDictTags } from '@/utils/groupBy'
 import * as ScrollArea from '@radix-ui/react-scroll-area'
@@ -11,18 +13,16 @@ import { useAtomValue } from 'jotai'
 import { useMemo, useState } from 'react'
 import { useHotkeys } from 'react-hotkeys-hook'
 import IconInfo from '~icons/ic/outline-info'
-import IconX from '~icons/tabler/x'
 
-// Shown expanded at the top of the page; everything else is collapsed below it.
-const FEATURED = { category: '国际考试', tag: 'PTE' }
+// PTE has its own home page; this page lists everything else.
+const FEATURED = { category: PTE_CATEGORY, tag: PTE_TAG }
 
 const isFeatured = (category: string, tag: string) => category === FEATURED.category && tag === FEATURED.tag
 
 export default function GalleryPage() {
   const currentDictInfo = useAtomValue(currentDictInfoAtom)
 
-  const { featuredDicts, otherGroups } = useMemo(() => {
-    const featuredDicts = dictionaries.filter((dict) => dict.category === FEATURED.category && dict.tags.includes(FEATURED.tag))
+  const { otherGroups } = useMemo(() => {
     const otherGroups: CategoryGroup[] = Object.entries(groupBy(dictionaries, (dict) => dict.category))
       .map(([category, dicts]) => {
         const tags = Object.entries(groupByDictTags(dicts))
@@ -33,7 +33,7 @@ export default function GalleryPage() {
         return { category, dictCount, tags }
       })
       .filter((group) => group.tags.length > 0)
-    return { featuredDicts, otherGroups }
+    return { otherGroups }
   }, [])
 
   // If the dictionary in use lives in a collapsed section, open that section on arrival.
@@ -46,30 +46,25 @@ export default function GalleryPage() {
 
   const onBack = useGoBack()
 
-  useHotkeys('enter,esc', onBack, { preventDefault: true })
+  useHotkeys('esc', onBack, { preventDefault: true })
 
   return (
     <Layout>
-      <div className="relative mb-auto mt-auto flex w-full flex-1 flex-col overflow-y-auto pl-20">
-        <IconX className="absolute right-20 top-10 mr-2 h-7 w-7 cursor-pointer text-gray-400" onClick={onBack} />
-        <div className="mt-20 flex w-full flex-1 flex-col items-center justify-center overflow-y-auto">
-          <div className="flex h-full flex-col overflow-y-auto">
-            <div className="flex h-20 w-full items-center justify-end pb-6 pr-20">
+      <AppNav />
+      <div className="relative flex w-full flex-1 flex-col overflow-y-auto pl-20">
+        <div className="flex w-full flex-1 flex-col items-center justify-center overflow-y-auto">
+          <div className="flex h-full w-full max-w-6xl flex-col overflow-y-auto">
+            <div className="flex w-full items-center justify-between pb-6 pr-20">
+              <div>
+                <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">其他词典</h1>
+                <p className="mt-1 text-gray-500 dark:text-gray-400">点击分类展开，再点击小类查看词典。PTE 词典在首页。</p>
+              </div>
               <DictRequest />
             </div>
             <ScrollArea.Root className="flex-1 overflow-y-auto">
               <ScrollArea.Viewport className="h-full w-full ">
                 <div className="mr-4 flex flex-1 flex-col gap-14 overflow-y-auto pr-16">
-                  <section>
-                    <div className="mb-6">
-                      <CategoryPath category={FEATURED.category} tag={FEATURED.tag} />
-                    </div>
-                    <DictGrid dicts={featuredDicts} />
-                  </section>
-                  <section>
-                    <h2 className="mb-3 text-xl font-semibold text-gray-700 dark:text-gray-200">其他词典</h2>
-                    <CategoryAccordion groups={otherGroups} initialOpen={initialOpen} />
-                  </section>
+                  <CategoryAccordion groups={otherGroups} initialOpen={initialOpen} />
                 </div>
                 <div className="flex items-center justify-center pb-10 pt-[20rem] text-gray-500">
                   <IconInfo className="mr-1 h-5 w-5" />

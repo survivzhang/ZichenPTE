@@ -1,5 +1,5 @@
 import { relations } from 'drizzle-orm'
-import { bigint, boolean, index, integer, jsonb, pgTable, serial, text, timestamp } from 'drizzle-orm/pg-core'
+import { bigint, boolean, doublePrecision, index, integer, jsonb, pgTable, serial, text, timestamp, uniqueIndex } from 'drizzle-orm/pg-core'
 
 // ---------------------------------------------------------------------------
 // Auth tables, in the shape Better Auth expects (user, session, account,
@@ -160,4 +160,82 @@ export const userPreference = pgTable('user_preference', {
   currentDict: text('current_dict'),
   currentChapter: integer('current_chapter'),
   updatedAt: updatedAt(),
+})
+
+// ---------------------------------------------------------------------------
+// Spaced repetition (FSRS). A card exists for every word the user has gotten
+// wrong (or that was imported as a mistake); words typed correctly the first
+// time are considered learned and get no card.
+// ---------------------------------------------------------------------------
+
+export const reviewCard = pgTable(
+  'review_card',
+  {
+    id: serial('id').primaryKey(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    // lowercased; one card per word per user, whichever dictionary it came from
+    word: text('word').notNull(),
+    displayWord: text('display_word').notNull(),
+    trans: jsonb('trans').$type<string[]>().notNull().default([]),
+    usphone: text('usphone'),
+    ukphone: text('ukphone'),
+    // where the mistake came from: typing, listening, speaking, reading, writing, other
+    source: text('source').notNull().default('typing'),
+    note: text('note'),
+    originDict: text('origin_dict'),
+    // FSRS card state (see ts-fsrs Card)
+    due: timestamp('due', { withTimezone: true }).notNull(),
+    stability: doublePrecision('stability').notNull(),
+    difficulty: doublePrecision('difficulty').notNull(),
+    elapsedDays: integer('elapsed_days').notNull(),
+    scheduledDays: integer('scheduled_days').notNull(),
+    learningSteps: integer('learning_steps').notNull(),
+    reps: integer('reps').notNull(),
+    lapses: integer('lapses').notNull(),
+    state: integer('state').notNull(),
+    lastReview: timestamp('last_review', { withTimezone: true }),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [uniqueIndex('review_card_user_word_idx').on(t.userId, t.word), index('review_card_user_due_idx').on(t.userId, t.due)],
+)
+
+// One row per time a carded word was answered: the first (wrong) learning
+// attempt, every review, and imports.
+export const reviewLog = pgTable(
+  'review_log',
+  {
+    id: serial('id').primaryKey(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    cardId: integer('card_id')
+      .notNull()
+      .references(() => reviewCard.id, { onDelete: 'cascade' }),
+    // learn = first time in a chapter, review = daily review, import = added via API or merged error book
+    kind: text('kind').notNull(),
+    correct: boolean('correct').notNull(),
+    // ts-fsrs Rating; 0 for imports
+    rating: integer('rating').notNull(),
+    nextDue: timestamp('next_due', { withTimezone: true }).notNull(),
+    reviewedAt: timestamp('reviewed_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [index('review_log_card_idx').on(t.cardId)],
+)
+
+// Admin-issued keys for the /api/v1 import API. Only a SHA-256 hash is stored.
+export const apiKey = pgTable('api_key', {
+  id: text('id').primaryKey(),
+  userId: text('user_id')
+    .notNull()
+    .references(() => user.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  // first characters of the key, shown in the admin list to tell keys apart
+  prefix: text('prefix').notNull(),
+  keyHash: text('key_hash').notNull().unique(),
+  lastUsedAt: timestamp('last_used_at', { withTimezone: true }),
+  revokedAt: timestamp('revoked_at', { withTimezone: true }),
+  createdAt: createdAt(),
 })

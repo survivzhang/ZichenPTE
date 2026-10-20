@@ -1,12 +1,16 @@
 import { auth } from './auth.js'
 import { db } from './db/index.js'
-import { chapterRecord, userPreference, wordRecord } from './db/schema.js'
-import { and, eq, gte } from 'drizzle-orm'
+import { apiKey, chapterRecord, reviewCard, user, userPreference, wordRecord } from './db/schema.js'
+import { importWords, listCards, recordAnswer } from './srs.js'
+import { and, asc, desc, eq, gte, inArray, isNull, lte } from 'drizzle-orm'
 import { Hono } from 'hono'
 import { createMiddleware } from 'hono/factory'
+import { createHash, randomBytes, randomUUID } from 'node:crypto'
 import { z } from 'zod'
 
-type Env = { Variables: { userId: string } }
+type Env = { Variables: { userId: string; role: string | null } }
+
+const SOURCES = ['typing', 'listening', 'speaking', 'reading', 'writing', 'other'] as const
 
 const unixSeconds = z
   .number()
@@ -22,6 +26,11 @@ const wordRecordInput = z.object({
   wrongCount: z.number().int().nonnegative(),
   mistakes: z.record(z.string(), z.array(z.string())),
   timeStamp: unixSeconds,
+  // learn = a normal chapter, review = the daily FSRS review
+  mode: z.enum(['learn', 'review']).default('learn'),
+  trans: z.array(z.string()).optional(),
+  usphone: z.string().nullish(),
+  ukphone: z.string().nullish(),
 })
 
 const chapterRecordInput = z.object({
@@ -41,14 +50,65 @@ const preferencesInput = z.object({
   currentChapter: z.number().int().nonnegative(),
 })
 
+// trans may be sent as one string ("n. 苹果; 苹果树") or a list
+const transInput = z
+  .union([z.string(), z.array(z.string())])
+  .optional()
+  .transform((t) => (t === undefined ? undefined : Array.isArray(t) ? t : [t]))
+
+const importWordInput = z.object({
+  word: z.string().trim().min(1).max(200),
+  trans: transInput,
+  usphone: z.string().max(200).nullish(),
+  ukphone: z.string().max(200).nullish(),
+  source: z.enum(SOURCES).default('other'),
+  note: z.string().max(1000).nullish(),
+})
+
 const requireUser = createMiddleware<Env>(async (c, next) => {
   const session = await auth.api.getSession({ headers: c.req.raw.headers })
   if (!session) {
     return c.json({ error: 'Unauthorized' }, 401)
   }
   c.set('userId', session.user.id)
+  c.set('role', session.user.role ?? null)
   await next()
 })
+
+const requireAdmin = createMiddleware<Env>(async (c, next) => {
+  if (c.get('role') !== 'admin') {
+    return c.json({ error: 'Forbidden' }, 403)
+  }
+  await next()
+})
+
+const hashKey = (key: string) => createHash('sha256').update(key).digest('hex')
+
+// /api/v1 is for scripts and agents: `Authorization: Bearer <api key>` issued by an admin.
+const requireApiKey = createMiddleware<Env>(async (c, next) => {
+  const key = c.req.header('authorization')?.match(/^Bearer\s+(\S+)$/i)?.[1]
+  if (!key) {
+    return c.json({ error: 'Missing API key: send Authorization: Bearer <key>' }, 401)
+  }
+  const [row] = await db
+    .select({ id: apiKey.id, userId: apiKey.userId, role: user.role })
+    .from(apiKey)
+    .innerJoin(user, eq(user.id, apiKey.userId))
+    .where(and(eq(apiKey.keyHash, hashKey(key)), isNull(apiKey.revokedAt)))
+  // Keys stop working if their owner is no longer an admin.
+  if (!row || row.role !== 'admin') {
+    return c.json({ error: 'Invalid or revoked API key' }, 401)
+  }
+  await db.update(apiKey).set({ lastUsedAt: new Date() }).where(eq(apiKey.id, row.id))
+  c.set('userId', row.userId)
+  c.set('role', row.role)
+  await next()
+})
+
+async function findUserIdByUsername(username: string) {
+  const [row] = await db.select({ id: user.id }).from(user).where(eq(user.username, username.trim().toLowerCase()))
+  return row?.id
+}
 
 const app = new Hono<Env>().basePath('/api')
 
@@ -58,6 +118,119 @@ app.on(['GET', 'POST'], '/auth/*', (c) => auth.handler(c.req.raw))
 app.use('/records/*', requireUser)
 app.use('/preferences', requireUser)
 app.use('/progress', requireUser)
+app.use('/review/*', requireUser)
+app.use('/words/*', requireUser)
+app.use('/api-keys', requireUser, requireAdmin)
+app.use('/api-keys/*', requireUser, requireAdmin)
+app.use('/v1/*', requireApiKey)
+
+// Review cards due before `before` (the end of the user's local day), oldest first.
+app.get('/review/due', async (c) => {
+  const before = new Date(c.req.query('before') ?? Date.now())
+  if (Number.isNaN(before.getTime())) {
+    return c.json({ error: 'Invalid before' }, 400)
+  }
+  const cards = await db
+    .select({
+      word: reviewCard.displayWord,
+      trans: reviewCard.trans,
+      usphone: reviewCard.usphone,
+      ukphone: reviewCard.ukphone,
+      source: reviewCard.source,
+      due: reviewCard.due,
+    })
+    .from(reviewCard)
+    .where(and(eq(reviewCard.userId, c.get('userId')), lte(reviewCard.due, before)))
+    .orderBy(asc(reviewCard.due))
+  return c.json({ count: cards.length, cards })
+})
+
+// Every review card with its answer history (the error book).
+app.get('/review/cards', async (c) => c.json({ cards: await listCards(c.get('userId')) }))
+
+// One-time merge of a browser's old local error book into the account.
+app.post('/review/import-local', async (c) => {
+  const parsed = z
+    .object({ words: z.array(importWordInput.extend({ originDict: z.string().max(200).nullish() })).max(5000) })
+    .safeParse(await c.req.json().catch(() => null))
+  if (!parsed.success) {
+    return c.json({ error: 'Invalid words', issues: parsed.error.issues }, 400)
+  }
+  return c.json(
+    await importWords(
+      c.get('userId'),
+      parsed.data.words.map((w) => ({ ...w, source: 'typing' as const })),
+      { onlyNew: true },
+    ),
+  )
+})
+
+// Words (lowercased) the user has practiced in any of the given dictionaries.
+app.get('/words/practiced', async (c) => {
+  const dicts = (c.req.query('dicts') ?? '').split(',').filter(Boolean).slice(0, 100)
+  if (dicts.length === 0) return c.json({ words: [] })
+  const rows = await db
+    .selectDistinct({ word: wordRecord.word })
+    .from(wordRecord)
+    .where(and(eq(wordRecord.userId, c.get('userId')), inArray(wordRecord.dict, dicts)))
+  return c.json({ words: [...new Set(rows.map((row) => row.word.toLowerCase()))] })
+})
+
+// ---- API key management (admins, from the user management page) ----
+
+app.get('/api-keys', async (c) => {
+  const keys = await db
+    .select({ id: apiKey.id, name: apiKey.name, prefix: apiKey.prefix, createdAt: apiKey.createdAt, lastUsedAt: apiKey.lastUsedAt })
+    .from(apiKey)
+    .where(and(eq(apiKey.userId, c.get('userId')), isNull(apiKey.revokedAt)))
+    .orderBy(desc(apiKey.createdAt))
+  return c.json({ keys })
+})
+
+app.post('/api-keys', async (c) => {
+  const parsed = z.object({ name: z.string().trim().min(1).max(100) }).safeParse(await c.req.json().catch(() => null))
+  if (!parsed.success) {
+    return c.json({ error: 'Name is required' }, 400)
+  }
+  const key = `qlk_${randomBytes(32).toString('base64url')}`
+  const row = { id: randomUUID(), userId: c.get('userId'), name: parsed.data.name, prefix: key.slice(0, 10), keyHash: hashKey(key) }
+  await db.insert(apiKey).values(row)
+  // The full key is returned only this once.
+  return c.json({ id: row.id, name: row.name, prefix: row.prefix, key }, 201)
+})
+
+app.delete('/api-keys/:id', async (c) => {
+  await db
+    .update(apiKey)
+    .set({ revokedAt: new Date() })
+    .where(and(eq(apiKey.id, c.req.param('id')), eq(apiKey.userId, c.get('userId'))))
+  return c.json({ ok: true })
+})
+
+// ---- /api/v1: import API for scripts and agents (see docs/API.md) ----
+
+app.get('/v1/users', async (c) => {
+  const users = await db.select({ username: user.username, role: user.role }).from(user).orderBy(asc(user.createdAt))
+  return c.json({ users })
+})
+
+app.get('/v1/review-words', async (c) => {
+  const userId = await findUserIdByUsername(c.req.query('username') ?? '')
+  if (!userId) return c.json({ error: 'Unknown username' }, 404)
+  return c.json({ cards: await listCards(userId) })
+})
+
+app.post('/v1/review-words', async (c) => {
+  const parsed = z
+    .object({ username: z.string().min(1), words: z.array(importWordInput).min(1).max(1000) })
+    .safeParse(await c.req.json().catch(() => null))
+  if (!parsed.success) {
+    return c.json({ error: 'Invalid request', issues: parsed.error.issues }, 400)
+  }
+  const userId = await findUserIdByUsername(parsed.data.username)
+  if (!userId) return c.json({ error: 'Unknown username' }, 404)
+  return c.json(await importWords(userId, parsed.data.words))
+})
 
 // Chapters of a dictionary the user has finished at least once (review sessions excluded).
 app.get('/progress', async (c) => {
@@ -97,11 +270,17 @@ app.post('/records/words', async (c) => {
   if (!parsed.success) {
     return c.json({ error: 'Invalid word record', issues: parsed.error.issues }, 400)
   }
-  const { timeStamp, ...record } = parsed.data
+  const { timeStamp, mode, trans, usphone, ukphone, ...record } = parsed.data
   const [row] = await db
     .insert(wordRecord)
     .values({ ...record, typedAt: timeStamp, userId: c.get('userId') })
     .returning({ id: wordRecord.id })
+  // Only the first try counts: any mistake on the way to typing the word correctly marks it wrong.
+  await recordAnswer(
+    c.get('userId'),
+    { word: record.word, trans, usphone, ukphone },
+    { correct: record.wrongCount === 0, kind: mode, originDict: record.dict },
+  )
   return c.json(row, 201)
 })
 

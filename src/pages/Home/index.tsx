@@ -1,17 +1,28 @@
-import Header from '@/components/Header'
+import AppNav from '@/components/AppNav'
 import Layout from '@/components/Layout'
+import useStartReview from '@/hooks/useStartReview'
+import { CategoryPath, DictGrid } from '@/pages/Gallery-N/CategoryAccordion'
 import { idDictionaryMap } from '@/resources/dictionary'
-import { currentChapterAtom, currentDictIdAtom, reviewModeInfoAtom } from '@/store'
+import { PTE_CATEGORY, PTE_TAG, pteDictionaries } from '@/resources/pte'
+import { currentChapterAtom, currentDictIdAtom, reviewModeInfoAtom, srsReviewAtom } from '@/store'
 import { getJSON } from '@/utils/api'
 import { authClient } from '@/utils/auth-client'
 import { db } from '@/utils/db'
+import { mergeLocalErrorBook } from '@/utils/mergeLocalErrorBook'
+import { useDueReviews } from '@/utils/review'
 import { useAtom, useSetAtom } from 'jotai'
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import IconArrowRight from '~icons/tabler/arrow-right'
-import IconBook from '~icons/tabler/book-2'
-import IconChartPie from '~icons/tabler/chart-pie'
-import IconNotebook from '~icons/tabler/notebook'
+import IconLock from '~icons/tabler/lock'
+
+const MODULES = [
+  { id: 'vocabulary', label: '词汇', ready: true },
+  { id: 'listening', label: '听力', ready: false },
+  { id: 'speaking', label: '口语', ready: false },
+  { id: 'reading', label: '阅读', ready: false },
+  { id: 'writing', label: '写作', ready: false },
+]
 
 type Recommendation =
   | { kind: 'start'; chapter: number }
@@ -52,6 +63,15 @@ export default function HomePage() {
   const [currentDictId] = useAtom(currentDictIdAtom)
   const [currentChapter, setCurrentChapter] = useAtom(currentChapterAtom)
   const setReviewModeInfo = useSetAtom(reviewModeInfoAtom)
+  const setSrsReview = useSetAtom(srsReviewAtom)
+  const { count: dueCount, refresh: refreshDue } = useDueReviews()
+  const startReview = useStartReview()
+  const userId = session?.user.id
+
+  // Fold this browser's pre-account error book into the review queue (once per account).
+  useEffect(() => {
+    if (userId) mergeLocalErrorBook(userId).then(() => refreshDue())
+  }, [userId, refreshDue])
   const dict = idDictionaryMap[currentDictId]
   const completed = useCompletedChapters(currentDictId)
 
@@ -71,99 +91,133 @@ export default function HomePage() {
   const startPractice = (chapter: number) => {
     setCurrentChapter(chapter)
     setReviewModeInfo((old) => ({ ...old, isReviewMode: false }))
+    setSrsReview({ active: false, words: [] })
     navigate('/practice')
   }
 
   const displayName = (session?.user as { displayUsername?: string } | undefined)?.displayUsername || session?.user.name
+  const isLocked = (dueCount ?? 0) > 0
 
   return (
     <Layout>
-      <Header />
-      <div className="flex w-full flex-1 flex-col items-center overflow-y-auto px-6 pt-6">
-        <div className="w-full max-w-2xl">
-          <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">你好，{displayName}</h1>
-          <p className="mt-1 text-gray-500 dark:text-gray-400">准备好就开始今天的练习吧。</p>
+      <AppNav />
+      <div className="flex w-full flex-1 flex-col items-center overflow-y-auto px-10 pb-10">
+        <div className="w-full max-w-6xl">
+          <div className="flex items-end justify-between">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">你好，{displayName}</h1>
+              <p className="mt-1 text-gray-500 dark:text-gray-400">PTE 备考 · 先复习，再学新词。</p>
+            </div>
+          </div>
 
-          <div className="mt-8 rounded-2xl bg-white p-8 shadow-sm dark:bg-gray-800">
-            {dict && (
-              <>
-                <p className="text-sm text-gray-400 dark:text-gray-500">
-                  {dict.category} / {dict.tags.join(' · ')}
-                </p>
-                <h2 className="mt-1 text-2xl font-semibold text-indigo-500">{dict.name}</h2>
-                {completed && (
-                  <div className="mt-4">
-                    <div className="mb-1.5 flex justify-between text-sm text-gray-500 dark:text-gray-400">
-                      <span>全书进度</span>
-                      <span>
-                        已完成 {completed.size} / {dict.chapterCount} 章
-                      </span>
-                    </div>
-                    <div className="h-2 overflow-hidden rounded-full bg-indigo-50 dark:bg-gray-700">
-                      <div
-                        className="h-full rounded-full bg-indigo-400 transition-all"
-                        style={{ width: `${Math.min(100, (completed.size / dict.chapterCount) * 100)}%` }}
-                      />
-                    </div>
-                  </div>
-                )}
-              </>
-            )}
+          <div className="mt-6 flex flex-wrap gap-2" role="tablist" aria-label="PTE 模块">
+            {MODULES.map(({ id, label, ready }) => (
+              <button
+                key={id}
+                type="button"
+                role="tab"
+                aria-selected={id === 'vocabulary'}
+                disabled={!ready}
+                className={`rounded-full px-5 py-2 text-sm font-medium transition ${
+                  id === 'vocabulary'
+                    ? 'bg-indigo-500 text-white'
+                    : 'cursor-not-allowed bg-white text-gray-400 dark:bg-gray-800 dark:text-gray-500'
+                }`}
+              >
+                {label}
+                {!ready && <span className="ml-1.5 text-xs">即将推出</span>}
+              </button>
+            ))}
+          </div>
 
-            <div className="mt-8 min-h-[5.5rem]">
-              {recommendation?.kind === 'dictDone' ? (
+          <div className="mt-6 grid grid-cols-1 gap-5 lg:grid-cols-2">
+            <section className="rounded-2xl bg-white p-7 shadow-sm dark:bg-gray-800">
+              <p className="text-sm text-gray-400 dark:text-gray-500">今日复习</p>
+              {dueCount === undefined ? (
+                <p className="mt-3 text-gray-400">正在读取复习计划…</p>
+              ) : dueCount > 0 ? (
                 <>
-                  <p className="text-gray-700 dark:text-gray-200">这本词典已经全部练完了 🎉 换一本继续吧。</p>
-                  <button
-                    type="button"
-                    onClick={() => navigate('/gallery')}
-                    className="mt-4 inline-flex items-center rounded-xl bg-indigo-500 px-6 py-3 text-lg font-medium text-white transition hover:bg-indigo-600"
-                  >
-                    选择其他词典
-                    <IconArrowRight className="ml-2 h-5 w-5" />
-                  </button>
-                </>
-              ) : recommendation ? (
-                <>
-                  <p className="text-gray-700 dark:text-gray-200">
-                    {recommendation.kind === 'start' && '从第 1 章开始吧。'}
-                    {recommendation.kind === 'continue' && `上次练到第 ${recommendation.chapter + 1} 章，接着练。`}
-                    {recommendation.kind === 'next' &&
-                      `第 ${recommendation.finished + 1} 章已完成，推荐继续第 ${recommendation.chapter + 1} 章。`}
-                  </p>
+                  <h2 className="mt-1 text-2xl font-semibold text-red-500">{dueCount} 个错词待复习</h2>
+                  <p className="mt-2 text-gray-500 dark:text-gray-400">复习完成后才能学习新内容。复习算法：FSRS。</p>
                   <button
                     type="button"
                     autoFocus
-                    onClick={() => startPractice(recommendation.chapter)}
-                    className="mt-4 inline-flex items-center rounded-xl bg-indigo-500 px-6 py-3 text-lg font-medium text-white shadow-md shadow-indigo-200 transition hover:bg-indigo-600 dark:shadow-none"
+                    onClick={startReview}
+                    className="mt-5 inline-flex items-center rounded-xl bg-indigo-500 px-6 py-3 text-lg font-medium text-white shadow-md shadow-indigo-200 transition hover:bg-indigo-600 dark:shadow-none"
                   >
-                    {recommendation.kind === 'start' ? '开始练习' : '继续练习'} · 第 {recommendation.chapter + 1} 章
+                    开始复习
                     <IconArrowRight className="ml-2 h-5 w-5" />
                   </button>
                 </>
               ) : (
-                <p className="text-gray-400">正在读取练习进度…</p>
+                <>
+                  <h2 className="mt-1 text-2xl font-semibold text-green-600">今天的复习已完成 ✓</h2>
+                  <p className="mt-2 text-gray-500 dark:text-gray-400">打错的词会按 FSRS 计划在之后的日子里再出现。</p>
+                </>
               )}
-            </div>
+            </section>
+
+            <section className={`rounded-2xl bg-white p-7 shadow-sm dark:bg-gray-800 ${isLocked ? 'opacity-60' : ''}`}>
+              {dict && (
+                <>
+                  <p className="text-sm text-gray-400 dark:text-gray-500">
+                    继续学习 · {dict.category} / {dict.tags.join(' · ')}
+                  </p>
+                  <h2 className="mt-1 text-2xl font-semibold text-indigo-500">{dict.name}</h2>
+                  {completed && (
+                    <div className="mt-3">
+                      <div className="mb-1.5 flex justify-between text-sm text-gray-500 dark:text-gray-400">
+                        <span>全书进度</span>
+                        <span>
+                          已完成 {completed.size} / {dict.chapterCount} 章
+                        </span>
+                      </div>
+                      <div className="h-2 overflow-hidden rounded-full bg-indigo-50 dark:bg-gray-700">
+                        <div
+                          className="h-full rounded-full bg-indigo-400 transition-all"
+                          style={{ width: `${Math.min(100, (completed.size / dict.chapterCount) * 100)}%` }}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+              <div className="mt-5">
+                {recommendation?.kind === 'dictDone' ? (
+                  <p className="text-gray-700 dark:text-gray-200">这本词典已经全部练完了 🎉 从下面选一本继续吧。</p>
+                ) : recommendation ? (
+                  <>
+                    <p className="text-gray-700 dark:text-gray-200">
+                      {recommendation.kind === 'start' && '从第 1 章开始吧。'}
+                      {recommendation.kind === 'continue' && `上次练到第 ${recommendation.chapter + 1} 章，接着练。`}
+                      {recommendation.kind === 'next' &&
+                        `第 ${recommendation.finished + 1} 章已完成，推荐继续第 ${recommendation.chapter + 1} 章。`}
+                    </p>
+                    <button
+                      type="button"
+                      disabled={isLocked}
+                      onClick={() => startPractice(recommendation.chapter)}
+                      className="mt-4 inline-flex items-center rounded-xl bg-indigo-500 px-6 py-3 text-lg font-medium text-white transition hover:bg-indigo-600 disabled:cursor-not-allowed disabled:bg-gray-300 dark:disabled:bg-gray-600"
+                    >
+                      {isLocked && <IconLock className="mr-2 h-5 w-5" />}
+                      {recommendation.kind === 'start' ? '开始练习' : '继续练习'} · 第 {recommendation.chapter + 1} 章
+                      {!isLocked && <IconArrowRight className="ml-2 h-5 w-5" />}
+                    </button>
+                    {isLocked && <p className="mt-2 text-sm text-gray-400">先完成左边的今日复习</p>}
+                  </>
+                ) : (
+                  <p className="text-gray-400">正在读取练习进度…</p>
+                )}
+              </div>
+            </section>
           </div>
 
-          <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
-            {[
-              { to: '/gallery', label: '选择其他词典', Icon: IconBook },
-              { to: '/error-book', label: '错题本', Icon: IconNotebook },
-              { to: '/analysis', label: '数据统计', Icon: IconChartPie },
-            ].map(({ to, label, Icon }) => (
-              <button
-                key={to}
-                type="button"
-                onClick={() => navigate(to)}
-                className="flex items-center justify-center rounded-xl bg-white px-4 py-3 text-gray-600 shadow-sm transition hover:bg-indigo-50 hover:text-indigo-500 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
-              >
-                <Icon className="mr-2 h-5 w-5" />
-                {label}
-              </button>
-            ))}
-          </div>
+          <section className="mt-10">
+            <div className="mb-6">
+              <CategoryPath category={PTE_CATEGORY} tag={`${PTE_TAG} 词汇`} />
+            </div>
+            <DictGrid dicts={pteDictionaries} />
+          </section>
         </div>
       </div>
     </Layout>
