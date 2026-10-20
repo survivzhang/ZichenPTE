@@ -3,6 +3,7 @@ import WordCard from './WordCard'
 import Drawer from '@/components/Drawer'
 import Tooltip from '@/components/Tooltip'
 import { currentChapterAtom, currentDictInfoAtom, isReviewModeAtom, srsReviewAtom } from '@/store'
+import { sessionLabel } from '@/utils/review'
 import { Dialog } from '@headlessui/react'
 import * as ScrollArea from '@radix-ui/react-scroll-area'
 import { atom, useAtomValue } from 'jotai'
@@ -13,8 +14,9 @@ import IconX from '~icons/tabler/x'
 const currentDictTitle = atom((get) => {
   const isReviewMode = get(isReviewModeAtom)
 
-  if (get(srsReviewAtom).active) {
-    return '今日复习'
+  const session = get(srsReviewAtom)
+  if (session.active) {
+    return sessionLabel(session.type, session.mode)
   } else if (isReviewMode) {
     return `${get(currentDictInfoAtom).name} 错题复习`
   } else {

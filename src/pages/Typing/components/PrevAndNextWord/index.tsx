@@ -32,9 +32,10 @@ export default function PrevAndNextWord({ type }: LastAndNextWordProps) {
     if (type === 'prev') return showWord
 
     if (type === 'next') {
-      return !wordDictationConfig.isOpen ? showWord : (showWord || '').replace(/./g, '_')
+      // The next word is the next answer: always masked, since everything is spelled from memory.
+      return (showWord || '').replace(/./g, '_')
     }
-  }, [word, currentLanguage, type, wordDictationConfig.isOpen])
+  }, [word, currentLanguage, type])
 
   return (
     <>

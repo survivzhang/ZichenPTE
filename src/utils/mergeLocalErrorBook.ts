@@ -8,6 +8,9 @@ import type { Word } from '@/typings'
  * Before the account had a database, mistakes lived only in this browser's
  * IndexedDB. Upload them once so they join the account's review queue.
  */
+// Unix seconds; login and server-side records were introduced on 2026-10-20.
+const ACCOUNTS_LAUNCHED_AT = Date.UTC(2026, 9, 20) / 1000
+
 let inFlight: Promise<void> | null = null
 
 export function mergeLocalErrorBook(userId: string) {
@@ -26,11 +29,15 @@ async function merge(userId: string) {
     return
   }
 
-  const records = await db.wordRecords
-    .where('wrongCount')
-    .above(0)
-    .toArray()
-    .catch(() => [])
+  // Only records from before accounts existed: later ones were already sent to the server as they
+  // were typed, and IndexedDB isn't per account, so they may belong to someone else on this browser.
+  const records = (
+    await db.wordRecords
+      .where('wrongCount')
+      .above(0)
+      .toArray()
+      .catch(() => [])
+  ).filter((record) => record.timeStamp < ACCOUNTS_LAUNCHED_AT)
 
   if (records.length > 0) {
     // Local records only keep the word; look up meaning and phonetics in its dictionary.

@@ -6,7 +6,14 @@ import Phonetic from './components/Phonetic'
 import Translation from './components/Translation'
 import WordComponent from './components/Word'
 import { usePrefetchPronunciationSound } from '@/hooks/usePronunciation'
-import { isReviewModeAtom, isShowPrevAndNextWordAtom, loopWordConfigAtom, phoneticConfigAtom, reviewModeInfoAtom } from '@/store'
+import {
+  hintUnlockedAtom,
+  isReviewModeAtom,
+  isShowPrevAndNextWordAtom,
+  loopWordConfigAtom,
+  phoneticConfigAtom,
+  reviewModeInfoAtom,
+} from '@/store'
 import type { Word } from '@/typings'
 import { useAtomValue, useSetAtom } from 'jotai'
 import { useCallback, useContext, useMemo, useState } from 'react'
@@ -144,14 +151,18 @@ export default function WordPanel() {
     [],
   )
 
+  const isHintUnlocked = useAtomValue(hintUnlockedAtom)
+  const isSentence = currentWord?.kind === 'fib' || currentWord?.kind === 'wfd'
   const shouldShowTranslation = useMemo(() => {
+    // For FIB/WFD the meaning gives the answer away, so it waits for the first mistake.
+    if (isSentence && !isHintUnlocked) return false
     return isShowTranslation || state.isTransVisible
-  }, [isShowTranslation, state.isTransVisible])
+  }, [isSentence, isHintUnlocked, isShowTranslation, state.isTransVisible])
 
   return (
     <div className="container flex h-full w-full flex-col items-center justify-center">
       <div className="container flex h-24 w-full shrink-0 grow-0 justify-between px-12 pt-10">
-        {isShowPrevAndNextWord && state.isTyping && (
+        {isShowPrevAndNextWord && state.isTyping && !isSentence && (
           <>
             <PrevAndNextWord type="prev" />
             <PrevAndNextWord type="next" />
@@ -172,7 +183,7 @@ export default function WordPanel() {
             )}
             <div className="relative">
               <WordComponent word={currentWord} onFinish={onFinish} key={wordComponentKey} />
-              {phoneticConfig.isOpen && <Phonetic word={currentWord} />}
+              {phoneticConfig.isOpen && !isSentence && <Phonetic word={currentWord} />}
               <Translation
                 trans={currentWord.trans.join('；')}
                 showTrans={shouldShowTranslation}

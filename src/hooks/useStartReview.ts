@@ -1,19 +1,39 @@
+import type { SessionType } from '@/store'
 import { srsReviewAtom } from '@/store'
-import { cardToWord, fetchDueCards } from '@/utils/review'
+import { cardToWord, fetchAllCards, fetchDueCards } from '@/utils/review'
 import { useSetAtom } from 'jotai'
 import { useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { mutate } from 'swr'
 
-/** Load today's due review cards and open them on the practice page. */
-export default function useStartReview() {
-  const setSrsReview = useSetAtom(srsReviewAtom)
+/**
+ * Open a session of review cards on the practice page.
+ * - mode review: the cards due today (for `word`, the mandatory daily review)
+ * - mode learn: every card of the type, practiced outside the schedule
+ */
+export function useStartSession() {
+  const setSession = useSetAtom(srsReviewAtom)
   const navigate = useNavigate()
-  return useCallback(async () => {
-    const due = await fetchDueCards()
-    mutate('review-due', due, { revalidate: false })
-    if (!due || due.count === 0) return
-    setSrsReview({ active: true, words: due.cards.map(cardToWord) })
-    navigate('/practice')
-  }, [navigate, setSrsReview])
+  return useCallback(
+    async (type: SessionType, mode: 'review' | 'learn') => {
+      let cards
+      if (mode === 'review') {
+        const due = await fetchDueCards(type)
+        mutate(type === 'word' ? 'review-due' : `review-due-${type}`, due, { revalidate: false })
+        cards = due?.cards
+      } else {
+        cards = (await fetchAllCards(type))?.cards
+      }
+      if (!cards || cards.length === 0) return
+      setSession({ active: true, words: cards.map(cardToWord), type, mode })
+      navigate('/practice')
+    },
+    [navigate, setSession],
+  )
+}
+
+/** Start today's (mandatory) word review. */
+export default function useStartReview() {
+  const startSession = useStartSession()
+  return useCallback(() => startSession('word', 'review'), [startSession])
 }

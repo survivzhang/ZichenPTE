@@ -3,6 +3,7 @@ import { ChapterRecord, ReviewRecord, WordRecord } from './record'
 import { TypingContext, TypingStateActionType } from '@/pages/Typing/store'
 import type { TypingState } from '@/pages/Typing/store/type'
 import { SRS_REVIEW_DICT, currentChapterAtom, currentDictIdAtom, isReviewModeAtom, srsReviewAtom } from '@/store'
+import type { SessionType } from '@/store'
 import { postJSON } from '@/utils/api'
 import type { Table } from 'dexie'
 import Dexie from 'dexie'
@@ -41,12 +42,16 @@ db.wordRecords.mapToClass(WordRecord)
 db.chapterRecords.mapToClass(ChapterRecord)
 db.reviewRecords.mapToClass(ReviewRecord)
 
+// Records from review sessions are filed under pseudo-dictionaries, apart from real word books.
+const sessionDict = (type?: SessionType) => (type === 'fib' ? 'pte-fib' : type === 'wfd' ? 'pte-wfd' : SRS_REVIEW_DICT)
+
 export function useSaveChapterRecord() {
   const currentChapter = useAtomValue(currentChapterAtom)
-  const isSrsReview = useAtomValue(srsReviewAtom).active
+  const session = useAtomValue(srsReviewAtom)
+  const isSrsReview = session.active
   const isRevision = useAtomValue(isReviewModeAtom) || isSrsReview
   const currentDictId = useAtomValue(currentDictIdAtom)
-  const dictID = isSrsReview ? SRS_REVIEW_DICT : currentDictId
+  const dictID = isSrsReview ? sessionDict(session.type) : currentDictId
 
   const saveChapterRecord = useCallback(
     (typingState: TypingState) => {
@@ -83,11 +88,12 @@ export type WordKeyLogger = {
 }
 
 export function useSaveWordRecord() {
-  const isSrsReview = useAtomValue(srsReviewAtom).active
+  const session = useAtomValue(srsReviewAtom)
+  const isSrsReview = session.active
   const isRevision = useAtomValue(isReviewModeAtom) || isSrsReview
   const currentChapter = useAtomValue(currentChapterAtom)
   const currentDictId = useAtomValue(currentDictIdAtom)
-  const dictID = isSrsReview ? SRS_REVIEW_DICT : currentDictId
+  const dictID = isSrsReview ? sessionDict(session.type) : currentDictId
 
   const { dispatch } = useContext(TypingContext) ?? {}
 
@@ -100,6 +106,7 @@ export function useSaveWordRecord() {
       trans,
       usphone,
       ukphone,
+      cardId,
     }: {
       word: string
       wrongCount: number
@@ -109,6 +116,7 @@ export function useSaveWordRecord() {
       trans?: string[]
       usphone?: string
       ukphone?: string
+      cardId?: number
     }) => {
       const timing = []
       for (let i = 1; i < letterTimeArray.length; i++) {
@@ -119,7 +127,14 @@ export function useSaveWordRecord() {
       const wordRecord = new WordRecord(word, dictID, isRevision ? -1 : currentChapter, timing, wrongCount, letterMistake)
 
       // The server turns a first-try mistake into a review card, and grades review answers.
-      postJSON('/records/words', { ...wordRecord, mode: isSrsReview ? 'review' : 'learn', trans, usphone, ukphone })
+      postJSON('/records/words', {
+        ...wordRecord,
+        mode: isSrsReview ? session.mode ?? 'review' : 'learn',
+        trans,
+        usphone,
+        ukphone,
+        cardId,
+      })
 
       let dbID = -1
       try {
@@ -132,7 +147,7 @@ export function useSaveWordRecord() {
         dispatch({ type: TypingStateActionType.SET_IS_SAVING_RECORD, payload: false })
       }
     },
-    [currentChapter, dictID, dispatch, isRevision, isSrsReview],
+    [currentChapter, dictID, dispatch, isRevision, isSrsReview, session.mode],
   )
 
   return saveWordRecord

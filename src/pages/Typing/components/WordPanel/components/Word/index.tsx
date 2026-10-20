@@ -9,12 +9,15 @@ import type { WordState } from './type'
 import Tooltip from '@/components/Tooltip'
 import type { WordPronunciationIconRef } from '@/components/WordPronunciationIcon'
 import { WordPronunciationIcon } from '@/components/WordPronunciationIcon'
+import { SoundIcon } from '@/components/WordPronunciationIcon/SoundIcon'
 import { EXPLICIT_SPACE } from '@/constants'
 import useKeySounds from '@/hooks/useKeySounds'
+import useSentenceAudio from '@/hooks/useSentenceAudio'
 import { TypingContext, TypingStateActionType } from '@/pages/Typing/store'
 import {
   currentChapterAtom,
   currentDictInfoAtom,
+  hintUnlockedAtom,
   isIgnoreCaseAtom,
   isShowAnswerOnHoverAtom,
   isTextSelectableAtom,
@@ -24,8 +27,8 @@ import {
 import type { Word } from '@/typings'
 import { CTRL, getUtcTimeString } from '@/utils'
 import { useSaveWordRecord } from '@/utils/db'
-import { useAtomValue } from 'jotai'
-import { useCallback, useContext, useEffect, useRef, useState } from 'react'
+import { useAtom, useAtomValue } from 'jotai'
+import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { useHotkeys } from 'react-hotkeys-hook'
 import { useImmer } from 'use-immer'
 
@@ -51,6 +54,21 @@ export default function WordComponent({ word, onFinish }: { word: Word; onFinish
   const [showTipAlert, setShowTipAlert] = useState(false)
   const wordPronunciationIconRef = useRef<WordPronunciationIconRef>(null)
 
+  // Hints (seeing the answer on hover, FIB audio, the meaning of FIB/WFD) unlock only after a mistake.
+  const [isHintUnlocked, setIsHintUnlocked] = useAtom(hintUnlockedAtom)
+  const sentenceAudio = useSentenceAudio(word.speakText)
+  const isSentence = word.kind === 'fib' || word.kind === 'wfd'
+  // FIB tests the collocation itself, so it stays silent until the first mistake.
+  const canPlayAudio = word.kind !== 'fib' || isHintUnlocked
+  const playAudio = useCallback(() => {
+    if (!canPlayAudio) return
+    if (isSentence) {
+      sentenceAudio.play()
+    } else {
+      wordPronunciationIconRef.current?.play()
+    }
+  }, [canPlayAudio, isSentence, sentenceAudio])
+
   useEffect(() => {
     // run only when word changes
     let headword = ''
@@ -68,7 +86,8 @@ export default function WordComponent({ word, onFinish }: { word: Word; onFinish
     newWordState.startTime = getUtcTimeString()
     newWordState.randomLetterVisible = headword.split('').map(() => Math.random() > 0.4)
     setWordState(newWordState)
-  }, [word, setWordState])
+    setIsHintUnlocked(false)
+  }, [word, setWordState, setIsHintUnlocked])
 
   const updateInput = useCallback(
     (updateAction: WordUpdateAction) => {
@@ -120,22 +139,42 @@ export default function WordComponent({ word, onFinish }: { word: Word; onFinish
     'ctrl+j',
     () => {
       if (state.isTyping) {
-        wordPronunciationIconRef.current?.play()
+        playAudio()
       }
     },
-    [state.isTyping],
+    [state.isTyping, playAudio],
     { enableOnFormTags: true, preventDefault: true },
   )
 
+  // Read the word (or the WFD sentence) out when it comes up; FIB stays silent.
   useEffect(() => {
-    if (wordState.inputWord.length === 0 && state.isTyping) {
-      wordPronunciationIconRef.current?.play && wordPronunciationIconRef.current?.play()
+    if (wordState.inputWord.length === 0 && state.isTyping && word.kind !== 'fib') {
+      if (word.kind === 'wfd') {
+        sentenceAudio.play()
+      } else {
+        wordPronunciationIconRef.current?.play && wordPronunciationIconRef.current?.play()
+      }
     }
-  }, [state.isTyping, wordState.inputWord.length, wordPronunciationIconRef.current?.play])
+    // A WFD rollback to the start of a later word must not replay the sentence.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.isTyping, wordState.inputWord.length === 0, wordPronunciationIconRef.current?.play, word])
+
+  // For sentences: letter indexes grouped by word (each space stays with the word after it).
+  const letterGroups = useMemo(() => {
+    const groups: number[][] = [[]]
+    wordState.displayWord.split('').forEach((letter, index) => {
+      if (letter === EXPLICIT_SPACE && groups[groups.length - 1].length > 0) groups.push([])
+      groups[groups.length - 1].push(index)
+    })
+    return groups
+  }, [wordState.displayWord])
 
   const getLetterVisible = useCallback(
     (index: number) => {
-      if (wordState.letterStates[index] === 'correct' || (isShowAnswerOnHover && isHoveringWord)) return true
+      if (wordState.letterStates[index] === 'correct') return true
+      // Spell from memory: nothing is shown until the first mistake unlocks hints.
+      if (!isHintUnlocked) return false
+      if (isShowAnswerOnHover && isHoveringWord) return true
 
       if (wordDictationConfig.isOpen) {
         if (wordDictationConfig.type === 'hideAll') return false
@@ -154,6 +193,7 @@ export default function WordComponent({ word, onFinish }: { word: Word; onFinish
       return true
     },
     [
+      isHintUnlocked,
       isHoveringWord,
       isShowAnswerOnHover,
       wordDictationConfig.isOpen,
@@ -214,6 +254,7 @@ export default function WordComponent({ word, onFinish }: { word: Word; onFinish
         state.hasWrong = true
         state.hasMadeInputWrong = true
         state.wrongCount += 1
+        state.wrongCharIndex = inputLength - 1
         state.letterTimeArray = []
 
         if (state.letterMistake[inputLength - 1]) {
@@ -226,6 +267,8 @@ export default function WordComponent({ word, onFinish }: { word: Word; onFinish
         dispatch({ type: TypingStateActionType.REPORT_WRONG_WORD, payload: { letterMistake: currentState.letterMistake } })
       })
 
+      setIsHintUnlocked(true)
+
       if (currentChapter === 0 && state.chapterData.index === 0 && wordState.wrongCount >= 3) {
         setShowTipAlert(true)
       }
@@ -237,8 +280,10 @@ export default function WordComponent({ word, onFinish }: { word: Word; onFinish
     if (wordState.hasWrong) {
       const timer = setTimeout(() => {
         setWordState((state) => {
-          state.inputWord = ''
-          state.letterStates = new Array(state.letterStates.length).fill('normal')
+          // WFD sentences roll back only to the start of the mistyped word, not the whole sentence.
+          const keep = word.kind === 'wfd' ? state.inputWord.lastIndexOf(EXPLICIT_SPACE, state.wrongCharIndex - 1) + 1 : 0
+          state.inputWord = state.inputWord.slice(0, keep)
+          state.letterStates = state.letterStates.map((letterState, i) => (i < keep ? letterState : 'normal'))
           state.hasWrong = false
         })
       }, 300)
@@ -247,7 +292,7 @@ export default function WordComponent({ word, onFinish }: { word: Word; onFinish
         clearTimeout(timer)
       }
     }
-  }, [wordState.hasWrong, setWordState])
+  }, [wordState.hasWrong, setWordState, word.kind])
 
   useEffect(() => {
     if (wordState.isFinished) {
@@ -261,6 +306,7 @@ export default function WordComponent({ word, onFinish }: { word: Word; onFinish
         trans: word.trans,
         usphone: word.usphone,
         ukphone: word.ukphone,
+        cardId: word.cardId,
       })
 
       onFinish()
@@ -283,27 +329,66 @@ export default function WordComponent({ word, onFinish }: { word: Word; onFinish
       >
         {['romaji', 'hapin'].includes(currentLanguage) && word.notation && <Notation notation={word.notation} />}
         <div
-          className={`tooltip-info relative w-fit bg-transparent p-0 leading-normal shadow-none dark:bg-transparent ${
-            wordDictationConfig.isOpen ? 'tooltip' : ''
+          className={`tooltip-info relative ${
+            isSentence ? 'w-full max-w-4xl px-12' : 'w-fit'
+          } bg-transparent p-0 leading-normal shadow-none dark:bg-transparent ${
+            wordDictationConfig.isOpen && isHintUnlocked ? 'tooltip' : ''
           }`}
-          data-tip="按 Tab 快捷键显示完整单词"
+          data-tip="按 Tab 快捷键显示完整答案"
         >
-          <div
-            onMouseEnter={() => handleHoverWord(true)}
-            onMouseLeave={() => handleHoverWord(false)}
-            className={`flex items-center ${isTextSelectable && 'select-all'} justify-center ${wordState.hasWrong ? style.wrong : ''}`}
-          >
-            {wordState.displayWord.split('').map((t, index) => {
-              return <Letter key={`${index}-${t}`} letter={t} visible={getLetterVisible(index)} state={wordState.letterStates[index]} />
-            })}
-          </div>
-          {pronunciationIsOpen && (
-            <div className="absolute -right-12 top-1/2 h-9 w-9 -translate-y-1/2 transform ">
-              <Tooltip content={`快捷键${CTRL} + J`}>
-                <WordPronunciationIcon word={word} lang={currentLanguage} ref={wordPronunciationIconRef} className="h-full w-full" />
-              </Tooltip>
+          {isSentence ? (
+            // FIB: the sentence with the blank to type; WFD: the whole sentence, grouped by word so it wraps between words.
+            <div
+              onMouseEnter={() => handleHoverWord(true)}
+              onMouseLeave={() => handleHoverWord(false)}
+              className={`max-w-4xl text-center leading-[2] ${isTextSelectable && 'select-all'} ${wordState.hasWrong ? style.wrong : ''}`}
+            >
+              {word.context?.before && <span className="text-3xl text-gray-500 dark:text-gray-400">{word.context.before}</span>}
+              {letterGroups.map((group, groupIndex) => (
+                <span key={groupIndex} className="inline-flex whitespace-nowrap">
+                  {group.map((index) => (
+                    <Letter
+                      key={`${index}-${wordState.displayWord[index]}`}
+                      letter={wordState.displayWord[index]}
+                      visible={getLetterVisible(index)}
+                      state={wordState.letterStates[index]}
+                      fontScale={0.6}
+                    />
+                  ))}
+                </span>
+              ))}
+              {word.context?.after && <span className="text-3xl text-gray-500 dark:text-gray-400">{word.context.after}</span>}
+            </div>
+          ) : (
+            <div
+              onMouseEnter={() => handleHoverWord(true)}
+              onMouseLeave={() => handleHoverWord(false)}
+              className={`flex items-center ${isTextSelectable && 'select-all'} justify-center ${wordState.hasWrong ? style.wrong : ''}`}
+            >
+              {wordState.displayWord.split('').map((t, index) => {
+                return <Letter key={`${index}-${t}`} letter={t} visible={getLetterVisible(index)} state={wordState.letterStates[index]} />
+              })}
             </div>
           )}
+          {isSentence
+            ? canPlayAudio && (
+                <div className="absolute -right-12 top-1/2 h-9 w-9 -translate-y-1/2 transform">
+                  <Tooltip content={`快捷键${CTRL} + J`}>
+                    <SoundIcon
+                      animated={sentenceAudio.isPlaying}
+                      onClick={sentenceAudio.play}
+                      className="h-full w-full cursor-pointer text-gray-600"
+                    />
+                  </Tooltip>
+                </div>
+              )
+            : pronunciationIsOpen && (
+                <div className="absolute -right-12 top-1/2 h-9 w-9 -translate-y-1/2 transform ">
+                  <Tooltip content={`快捷键${CTRL} + J`}>
+                    <WordPronunciationIcon word={word} lang={currentLanguage} ref={wordPronunciationIconRef} className="h-full w-full" />
+                  </Tooltip>
+                </div>
+              )}
         </div>
       </div>
       <TipAlert className="fixed bottom-10 right-3" show={showTipAlert} setShow={setShowTipAlert} />

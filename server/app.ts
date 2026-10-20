@@ -1,8 +1,9 @@
 import { auth } from './auth.js'
 import { db } from './db/index.js'
-import { apiKey, chapterRecord, reviewCard, user, userPreference, wordRecord } from './db/schema.js'
-import { importWords, listCards, recordAnswer } from './srs.js'
-import { and, asc, desc, eq, gte, inArray, isNull, lte } from 'drizzle-orm'
+import { apiKey, chapterRecord, user, userPreference, wordRecord } from './db/schema.js'
+import { CARD_TYPES, dueCards, importSentences, importWords, listCards, parseFib, recordAnswer } from './srs.js'
+import { isTtsConfigured, synthesize } from './tts.js'
+import { and, asc, desc, eq, gte, inArray, isNull } from 'drizzle-orm'
 import { Hono } from 'hono'
 import { createMiddleware } from 'hono/factory'
 import { createHash, randomBytes, randomUUID } from 'node:crypto'
@@ -19,7 +20,8 @@ const unixSeconds = z
   .transform((s) => new Date(s * 1000))
 
 const wordRecordInput = z.object({
-  word: z.string().min(1).max(200),
+  // a word, a FIB answer or a whole WFD sentence
+  word: z.string().min(1).max(1000),
   dict: z.string().min(1).max(200),
   chapter: z.number().int().nullable(),
   timing: z.array(z.number()),
@@ -31,6 +33,8 @@ const wordRecordInput = z.object({
   trans: z.array(z.string()).optional(),
   usphone: z.string().nullish(),
   ukphone: z.string().nullish(),
+  // set when the item came from a review card (daily review, FIB, WFD)
+  cardId: z.number().int().positive().optional(),
 })
 
 const chapterRecordInput = z.object({
@@ -124,29 +128,39 @@ app.use('/api-keys', requireUser, requireAdmin)
 app.use('/api-keys/*', requireUser, requireAdmin)
 app.use('/v1/*', requireApiKey)
 
-// Review cards due before `before` (the end of the user's local day), oldest first.
+// Cards due before `before` (the end of the user's local day), oldest first. Word cards make up the
+// mandatory daily review; ?type=fib|wfd gives the optional FIB/WFD suggestions.
 app.get('/review/due', async (c) => {
   const before = new Date(c.req.query('before') ?? Date.now())
-  if (Number.isNaN(before.getTime())) {
-    return c.json({ error: 'Invalid before' }, 400)
+  const type = z.enum(CARD_TYPES).default('word').safeParse(c.req.query('type'))
+  if (Number.isNaN(before.getTime()) || !type.success) {
+    return c.json({ error: 'Invalid before or type' }, 400)
   }
-  const cards = await db
-    .select({
-      word: reviewCard.displayWord,
-      trans: reviewCard.trans,
-      usphone: reviewCard.usphone,
-      ukphone: reviewCard.ukphone,
-      source: reviewCard.source,
-      due: reviewCard.due,
-    })
-    .from(reviewCard)
-    .where(and(eq(reviewCard.userId, c.get('userId')), lte(reviewCard.due, before)))
-    .orderBy(asc(reviewCard.due))
+  const cards = await dueCards(c.get('userId'), type.data, before)
   return c.json({ count: cards.length, cards })
 })
 
 // Every review card with its answer history (the error book).
-app.get('/review/cards', async (c) => c.json({ cards: await listCards(c.get('userId')) }))
+app.get('/review/cards', async (c) => {
+  const type = z.enum(CARD_TYPES).optional().safeParse(c.req.query('type'))
+  if (!type.success) return c.json({ error: 'Invalid type' }, 400)
+  return c.json({ cards: await listCards(c.get('userId'), type.data) })
+})
+
+// Speech for a sentence or phrase (Azure, cached). 503 when not configured: the client then uses the browser's voice.
+app.get('/tts', requireUser, async (c) => {
+  const text = (c.req.query('text') ?? '').trim()
+  if (!text || text.length > 600) return c.json({ error: 'text must be 1-600 characters' }, 400)
+  if (!isTtsConfigured()) return c.json({ error: 'TTS not configured' }, 503)
+  try {
+    const audio = await synthesize(text)
+    if (!audio) return c.json({ error: 'TTS not configured' }, 503)
+    return c.body(new Uint8Array(audio), 200, { 'Content-Type': 'audio/mpeg', 'Cache-Control': 'private, max-age=31536000, immutable' })
+  } catch (error) {
+    console.error(error)
+    return c.json({ error: 'TTS failed' }, 502)
+  }
+})
 
 // One-time merge of a browser's old local error book into the account.
 app.post('/review/import-local', async (c) => {
@@ -217,7 +231,53 @@ app.get('/v1/users', async (c) => {
 app.get('/v1/review-words', async (c) => {
   const userId = await findUserIdByUsername(c.req.query('username') ?? '')
   if (!userId) return c.json({ error: 'Unknown username' }, 404)
-  return c.json({ cards: await listCards(userId) })
+  const type = z.enum(CARD_TYPES).optional().safeParse(c.req.query('type'))
+  if (!type.success) return c.json({ error: 'Invalid type' }, 400)
+  return c.json({ cards: await listCards(userId, type.data) })
+})
+
+const sentenceImportInput = z.object({
+  username: z.string().min(1),
+  items: z
+    .array(
+      z.object({
+        sentence: z.string().trim().min(1).max(600),
+        trans: transInput,
+        note: z.string().max(1000).nullish(),
+      }),
+    )
+    .min(1)
+    .max(1000),
+})
+
+// FIB collocations: each sentence has exactly one [blank], e.g. "consistent [with] previous studies".
+app.post('/v1/fib', async (c) => {
+  const parsed = sentenceImportInput
+    .superRefine((body, ctx) =>
+      body.items.forEach((item, i) => {
+        if (!parseFib(item.sentence)) {
+          ctx.addIssue({ code: 'custom', path: ['items', i, 'sentence'], message: 'must contain exactly one [blank]' })
+        }
+      }),
+    )
+    .safeParse(await c.req.json().catch(() => null))
+  if (!parsed.success) {
+    return c.json({ error: 'Invalid request', issues: parsed.error.issues }, 400)
+  }
+  const userId = await findUserIdByUsername(parsed.data.username)
+  if (!userId) return c.json({ error: 'Unknown username' }, 404)
+  return c.json(await importSentences(userId, 'fib', parsed.data.items))
+})
+
+// WFD sentences, dictated as a whole.
+app.post('/v1/wfd', async (c) => {
+  const parsed = sentenceImportInput.safeParse(await c.req.json().catch(() => null))
+  if (!parsed.success) {
+    return c.json({ error: 'Invalid request', issues: parsed.error.issues }, 400)
+  }
+  const userId = await findUserIdByUsername(parsed.data.username)
+  if (!userId) return c.json({ error: 'Unknown username' }, 404)
+  return c.json(await importSentences(userId, 'wfd', parsed.data.items))
 })
 
 app.post('/v1/review-words', async (c) => {
@@ -270,7 +330,7 @@ app.post('/records/words', async (c) => {
   if (!parsed.success) {
     return c.json({ error: 'Invalid word record', issues: parsed.error.issues }, 400)
   }
-  const { timeStamp, mode, trans, usphone, ukphone, ...record } = parsed.data
+  const { timeStamp, mode, trans, usphone, ukphone, cardId, ...record } = parsed.data
   const [row] = await db
     .insert(wordRecord)
     .values({ ...record, typedAt: timeStamp, userId: c.get('userId') })
@@ -279,7 +339,7 @@ app.post('/records/words', async (c) => {
   await recordAnswer(
     c.get('userId'),
     { word: record.word, trans, usphone, ukphone },
-    { correct: record.wrongCount === 0, kind: mode, originDict: record.dict },
+    { correct: record.wrongCount === 0, kind: mode, originDict: record.dict, cardId },
   )
   return c.json(row, 201)
 })

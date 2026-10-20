@@ -25,6 +25,14 @@ export type Word = {
   usphone: string
   ukphone: string
   notation?: string
+  // PTE practice items. fib: `name` is the blank's answer, shown inside its sentence;
+  // wfd: `name` is the whole sentence (lowercase, no punctuation), dictated from audio.
+  kind?: 'fib' | 'wfd'
+  context?: { before: string; after: string }
+  // what the speaker reads: the full sentence for fib/wfd
+  speakText?: string
+  // review card this item came from, so the answer grades that card
+  cardId?: number
 }
 
 export type WordWithIndex = Word & {

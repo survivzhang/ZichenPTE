@@ -1,3 +1,4 @@
+import PracticeMistakes from './PracticeMistakes'
 import AppNav from '@/components/AppNav'
 import Layout from '@/components/Layout'
 import useStartReview from '@/hooks/useStartReview'
@@ -17,12 +18,11 @@ import IconArrowRight from '~icons/tabler/arrow-right'
 import IconLock from '~icons/tabler/lock'
 
 const MODULES = [
-  { id: 'vocabulary', label: '词汇', ready: true },
-  { id: 'listening', label: '听力', ready: false },
-  { id: 'speaking', label: '口语', ready: false },
-  { id: 'reading', label: '阅读', ready: false },
-  { id: 'writing', label: '写作', ready: false },
-]
+  { id: 'vocabulary', label: '词汇' },
+  { id: 'mistakes', label: '练习中错题' },
+] as const
+
+type ModuleId = (typeof MODULES)[number]['id']
 
 type Recommendation =
   | { kind: 'start'; chapter: number }
@@ -66,6 +66,7 @@ export default function HomePage() {
   const setSrsReview = useSetAtom(srsReviewAtom)
   const { count: dueCount, refresh: refreshDue } = useDueReviews()
   const startReview = useStartReview()
+  const [module, setModule] = useState<ModuleId>('vocabulary')
   const userId = session?.user.id
 
   // Fold this browser's pre-account error book into the review queue (once per account).
@@ -108,26 +109,6 @@ export default function HomePage() {
               <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">你好，{displayName}</h1>
               <p className="mt-1 text-gray-500 dark:text-gray-400">PTE 备考 · 先复习，再学新词。</p>
             </div>
-          </div>
-
-          <div className="mt-6 flex flex-wrap gap-2" role="tablist" aria-label="PTE 模块">
-            {MODULES.map(({ id, label, ready }) => (
-              <button
-                key={id}
-                type="button"
-                role="tab"
-                aria-selected={id === 'vocabulary'}
-                disabled={!ready}
-                className={`rounded-full px-5 py-2 text-sm font-medium transition ${
-                  id === 'vocabulary'
-                    ? 'bg-indigo-500 text-white'
-                    : 'cursor-not-allowed bg-white text-gray-400 dark:bg-gray-800 dark:text-gray-500'
-                }`}
-              >
-                {label}
-                {!ready && <span className="ml-1.5 text-xs">即将推出</span>}
-              </button>
-            ))}
           </div>
 
           <div className="mt-6 grid grid-cols-1 gap-5 lg:grid-cols-2">
@@ -212,12 +193,35 @@ export default function HomePage() {
             </section>
           </div>
 
-          <section className="mt-10">
-            <div className="mb-6">
-              <CategoryPath category={PTE_CATEGORY} tag={`${PTE_TAG} 词汇`} />
-            </div>
-            <DictGrid dicts={pteDictionaries} />
-          </section>
+          <div className="mt-10 flex flex-wrap gap-2" role="tablist" aria-label="PTE 模块">
+            {MODULES.map(({ id, label }) => (
+              <button
+                key={id}
+                type="button"
+                role="tab"
+                aria-selected={id === module}
+                onClick={() => setModule(id)}
+                className={`rounded-full px-5 py-2 text-sm font-medium transition ${
+                  id === module
+                    ? 'bg-indigo-500 text-white'
+                    : 'bg-white text-gray-600 hover:bg-indigo-50 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
+          {module === 'mistakes' ? (
+            <PracticeMistakes />
+          ) : (
+            <section className="mt-6">
+              <div className="mb-6">
+                <CategoryPath category={PTE_CATEGORY} tag={`${PTE_TAG} 词汇`} />
+              </div>
+              <DictGrid dicts={pteDictionaries} />
+            </section>
+          )}
         </div>
       </div>
     </Layout>

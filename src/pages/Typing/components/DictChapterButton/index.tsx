@@ -2,6 +2,7 @@ import Tooltip from '@/components/Tooltip'
 import { isPteDict } from '@/resources/pte'
 import { currentChapterAtom, currentDictInfoAtom, isReviewModeAtom, srsReviewAtom } from '@/store'
 import range from '@/utils/range'
+import { sessionLabel } from '@/utils/review'
 import { Listbox, Transition } from '@headlessui/react'
 import { useAtom, useAtomValue } from 'jotai'
 import { Fragment } from 'react'
@@ -21,7 +22,12 @@ export const DictChapterButton = () => {
     }
   }
   if (srsReview.active) {
-    return <span className="px-3 py-1 text-lg text-indigo-500 dark:text-indigo-300">今日复习 · {srsReview.words.length} 词</span>
+    return (
+      <span className="px-3 py-1 text-lg text-indigo-500 dark:text-indigo-300">
+        {sessionLabel(srsReview.type, srsReview.mode)} · {srsReview.words.length}{' '}
+        {srsReview.type === 'word' || !srsReview.type ? '词' : '句'}
+      </span>
+    )
   }
 
   return (

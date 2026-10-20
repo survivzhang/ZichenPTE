@@ -106,7 +106,7 @@ export const infoPanelStateAtom = atom<InfoPanelState>({
 })
 
 export const wordDictationConfigAtom = atomForConfig('wordDictationConfig', {
-  isOpen: false,
+  isOpen: true,
   type: 'hideAll' as WordDictationType,
   openBy: 'auto' as WordDictationOpenBy,
 })
@@ -122,5 +122,17 @@ export const hasSeenEnhancedPromotionAtom = atomWithStorage('hasSeenEnhancedProm
 // Records made during the daily review are filed under this pseudo-dictionary.
 export const SRS_REVIEW_DICT = 'srs-review'
 
-/** The daily FSRS review session; kept in memory, the due list is re-fetched from the server. */
-export const srsReviewAtom = atom<{ active: boolean; words: Word[] }>({ active: false, words: [] })
+export type SessionType = 'word' | 'fib' | 'wfd'
+
+/**
+ * A session of review cards on the practice page, kept in memory (the list is
+ * re-fetched from the server). type word + mode review = the daily review;
+ * fib/wfd = the optional PTE practice; mode learn = practicing outside the schedule.
+ */
+export const srsReviewAtom = atom<{ active: boolean; words: Word[]; type?: SessionType; mode?: 'review' | 'learn' }>({
+  active: false,
+  words: [],
+})
+
+/** Set once the current item has been typed wrong; unlocks hints (hover, audio for FIB, meaning). */
+export const hintUnlockedAtom = atom(false)

@@ -3,7 +3,8 @@ import useStartReview from '@/hooks/useStartReview'
 import { currentChapterAtom, currentDictInfoAtom, srsReviewAtom } from '@/store'
 import { getUTCUnixTimestamp } from '@/utils'
 import { postJSON } from '@/utils/api'
-import { useAtom, useAtomValue, useSetAtom } from 'jotai'
+import { sessionLabel } from '@/utils/review'
+import { useAtom, useAtomValue } from 'jotai'
 import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { mutate } from 'swr'
@@ -66,22 +67,23 @@ export function ChapterSkippedPanel() {
 
 /** End of a daily review session. */
 export function ReviewDoneScreen({ total, firstTryCorrect }: { total: number; firstTryCorrect: number }) {
-  const setSrsReview = useSetAtom(srsReviewAtom)
+  const [session, setSrsReview] = useAtom(srsReviewAtom)
+  const label = sessionLabel(session.type, session.mode)
+  const unit = session.type === 'fib' || session.type === 'wfd' ? '句' : '词'
   const navigate = useNavigate()
 
   const finish = () => {
     setSrsReview({ active: false, words: [] })
-    mutate('review-due')
-    mutate('review-cards')
+    mutate((key) => typeof key === 'string' && key.startsWith('review-'))
     navigate('/')
   }
 
   return (
     <div className="fixed inset-0 z-30 flex items-center justify-center bg-indigo-50/60 backdrop-blur-sm dark:bg-gray-900/70">
       <div className={panelClass}>
-        <h2 className="text-2xl font-semibold text-gray-800 dark:text-gray-100">今天的复习完成了 🎉</h2>
+        <h2 className="text-2xl font-semibold text-gray-800 dark:text-gray-100">{label}完成了 🎉</h2>
         <p className="mt-3 text-gray-600 dark:text-gray-300">
-          复习 {total} 词 · 第一遍就对 <span className="font-semibold text-green-600">{firstTryCorrect}</span> · 第一遍错{' '}
+          共 {total} {unit} · 第一遍就对 <span className="font-semibold text-green-600">{firstTryCorrect}</span> · 第一遍错{' '}
           <span className="font-semibold text-red-500">{total - firstTryCorrect}</span>
         </p>
         <p className="mt-1 text-sm text-gray-400">错的词明天会再出现，对的词间隔会越来越长。</p>

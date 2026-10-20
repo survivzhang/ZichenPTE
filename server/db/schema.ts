@@ -166,6 +166,10 @@ export const userPreference = pgTable('user_preference', {
 // Spaced repetition (FSRS). A card exists for every word the user has gotten
 // wrong (or that was imported as a mistake); words typed correctly the first
 // time are considered learned and get no card.
+//
+// type = word: a single word; part of the mandatory daily review.
+// type = fib / wfd: a PTE Fill-in-the-Blank collocation or Write From Dictation
+// sentence; their own optional practice, never part of the daily review.
 // ---------------------------------------------------------------------------
 
 export const reviewCard = pgTable(
@@ -175,9 +179,13 @@ export const reviewCard = pgTable(
     userId: text('user_id')
       .notNull()
       .references(() => user.id, { onDelete: 'cascade' }),
-    // lowercased; one card per word per user, whichever dictionary it came from
+    type: text('type').notNull().default('word'),
+    // lookup key, lowercased: the word itself, or the normalized sentence for fib/wfd
     word: text('word').notNull(),
+    // word: the word; fib: the answer that goes in the blank; wfd: the sentence
     displayWord: text('display_word').notNull(),
+    // fib: the sentence with the blank in [brackets]; wfd: the sentence
+    sentence: text('sentence'),
     trans: jsonb('trans').$type<string[]>().notNull().default([]),
     usphone: text('usphone'),
     ukphone: text('ukphone'),
@@ -199,7 +207,10 @@ export const reviewCard = pgTable(
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
-  (t) => [uniqueIndex('review_card_user_word_idx').on(t.userId, t.word), index('review_card_user_due_idx').on(t.userId, t.due)],
+  (t) => [
+    uniqueIndex('review_card_user_type_word_idx').on(t.userId, t.type, t.word),
+    index('review_card_user_due_idx').on(t.userId, t.due),
+  ],
 )
 
 // One row per time a carded word was answered: the first (wrong) learning
@@ -237,5 +248,16 @@ export const apiKey = pgTable('api_key', {
   keyHash: text('key_hash').notNull().unique(),
   lastUsedAt: timestamp('last_used_at', { withTimezone: true }),
   revokedAt: timestamp('revoked_at', { withTimezone: true }),
+  createdAt: createdAt(),
+})
+
+// Synthesized speech (Azure TTS), cached so each sentence is generated once.
+export const ttsAudio = pgTable('tts_audio', {
+  // sha256 of voice + text
+  id: text('id').primaryKey(),
+  voice: text('voice').notNull(),
+  text: text('text').notNull(),
+  // base64-encoded mp3
+  audio: text('audio').notNull(),
   createdAt: createdAt(),
 })

@@ -61,7 +61,47 @@ curl -s "$BASE/review-words?username=zichen" -H "Authorization: Bearer $QLK"
 Returns every card with `word`, `trans`, `source`, `note`, `due` and
 `history` (each answer: `kind` = `learn` | `review` | `import`, `correct`, `at`).
 
+## Add FIB collocations
+
+`POST /fib` — Reading/Listening Fill-in-the-Blank collocations. Each sentence
+has exactly **one** blank in `[square brackets]`; the blank may be a phrase.
+Only the bracketed part is typed; the rest of the sentence is shown.
+
+```bash
+curl -s -X POST "$BASE/fib" \
+  -H "Authorization: Bearer $QLK" -H 'Content-Type: application/json' \
+  -d '{
+    "username": "zichen",
+    "items": [
+      {"sentence": "The results are consistent [with] previous studies.", "trans": "与……一致", "note": "RW FIB"},
+      {"sentence": "This is, [in terms of] cost, the best option."}
+    ]
+  }'
+# {"created":2,"updated":0}
+```
+
+A sentence with no blank or more than one is rejected with `400`.
+
+## Add WFD sentences
+
+`POST /wfd` — Write From Dictation sentences. The whole sentence is read out
+(Azure neural voice when configured, otherwise the browser's British voice) and
+typed in full; case and punctuation are ignored.
+
+```bash
+curl -s -X POST "$BASE/wfd" \
+  -H "Authorization: Bearer $QLK" -H 'Content-Type: application/json' \
+  -d '{"username": "zichen", "items": [{"sentence": "The library will be closed for renovation next week."}]}'
+```
+
+Both take up to 1000 `items` of `{ sentence, trans?, note? }`. FIB and WFD
+items have their own FSRS schedule shown as suggestions on the PTE page; they
+are **not** part of the mandatory daily review. Importing a sentence that is
+already there moves it up to "due now".
+
+`GET /review-words?username=…&type=fib` (or `wfd`, `word`) lists one kind.
+
 ## Planned
 
-Importing whole dictionaries (e.g. PTE FIB high-frequency words, WFD dictation
-lists) as new PTE word books will be added under `/api/v1` as well.
+Importing whole word books (e.g. PTE high-frequency word lists) as new PTE
+dictionaries will be added under `/api/v1` as well.
