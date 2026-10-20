@@ -1,25 +1,6 @@
 import { toFixedNumber } from '@/utils'
-import { db } from '@/utils/db'
-import type { IChapterRecord } from '@/utils/db/record'
-import { useEffect, useState } from 'react'
-
-export function useChapterStats(chapter: number, dictID: string, isStartLoad: boolean) {
-  const [chapterStats, setChapterStats] = useState<IChapterStats | null>(null)
-
-  useEffect(() => {
-    const fetchChapterStats = async () => {
-      const stats = await getChapterStats(dictID, chapter)
-      setChapterStats(stats)
-    }
-
-    if (isStartLoad && !chapterStats) {
-      fetchChapterStats()
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dictID, chapter, isStartLoad])
-
-  return chapterStats
-}
+import { getJSON } from '@/utils/api'
+import useSWR from 'swr'
 
 interface IChapterStats {
   exerciseCount: number
@@ -27,18 +8,19 @@ interface IChapterStats {
   avgWrongInputCount: number
 }
 
-async function getChapterStats(dict: string, chapter: number | null): Promise<IChapterStats> {
-  const records: IChapterRecord[] = await db.chapterRecords.where({ dict, chapter }).toArray()
+type ChapterTotals = { chapter: number; exerciseCount: number; wrongWordTotal: number; wrongInputTotal: number }
 
-  const exerciseCount = records.length
-  const totalWrongWordCount = records.reduce(
-    (total, { wordNumber, correctWordIndexes }) => total + (wordNumber - correctWordIndexes.length),
-    0,
+/** Practice totals for one chapter; all chapters of a dictionary come from one request. */
+export function useChapterStats(chapter: number, dictID: string, isStartLoad: boolean): IChapterStats | null {
+  const { data } = useSWR(isStartLoad ? `stats-chapters-${dictID}` : null, () =>
+    getJSON<{ chapters: ChapterTotals[] }>(`/stats/chapters?dict=${encodeURIComponent(dictID)}`),
   )
-  const avgWrongWordCount = exerciseCount > 0 ? toFixedNumber(totalWrongWordCount / exerciseCount, 2) : 0
-
-  const totalWrongInputCount = records.reduce((total, { wrongCount }) => total + (wrongCount ?? 0), 0)
-  const avgWrongInputCount = exerciseCount > 0 ? toFixedNumber(totalWrongInputCount / exerciseCount, 2) : 0
-
-  return { exerciseCount, avgWrongWordCount, avgWrongInputCount }
+  if (!data) return null
+  const totals = data.chapters.find((row) => row.chapter === chapter)
+  const exerciseCount = totals?.exerciseCount ?? 0
+  return {
+    exerciseCount,
+    avgWrongWordCount: exerciseCount > 0 ? toFixedNumber((totals?.wrongWordTotal ?? 0) / exerciseCount, 2) : 0,
+    avgWrongInputCount: exerciseCount > 0 ? toFixedNumber((totals?.wrongInputTotal ?? 0) / exerciseCount, 2) : 0,
+  }
 }

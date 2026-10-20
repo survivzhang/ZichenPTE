@@ -6,21 +6,12 @@ import RemarkRing from './RemarkRing'
 import WordChip from './WordChip'
 import styles from './index.module.css'
 import Tooltip from '@/components/Tooltip'
-import {
-  currentChapterAtom,
-  currentDictInfoAtom,
-  infoPanelStateAtom,
-  isReviewModeAtom,
-  randomConfigAtom,
-  reviewModeInfoAtom,
-  wordDictationConfigAtom,
-} from '@/store'
+import { currentChapterAtom, currentDictInfoAtom, infoPanelStateAtom, randomConfigAtom, wordDictationConfigAtom } from '@/store'
 import type { InfoPanelType } from '@/typings'
 import { Transition } from '@headlessui/react'
 import { useAtom, useAtomValue, useSetAtom } from 'jotai'
 import { useCallback, useContext, useEffect, useMemo } from 'react'
 import { useHotkeys } from 'react-hotkeys-hook'
-import { useNavigate } from 'react-router-dom'
 import IexportWords from '~icons/icon-park-outline/excel'
 import IconCoffee from '~icons/mdi/coffee'
 import IconXiaoHongShu from '~icons/my-icons/xiaohongshu'
@@ -37,10 +28,6 @@ const ResultScreen = () => {
   const [currentChapter, setCurrentChapter] = useAtom(currentChapterAtom)
   const setInfoPanelState = useSetAtom(infoPanelStateAtom)
   const randomConfig = useAtomValue(randomConfigAtom)
-  const navigate = useNavigate()
-
-  const setReviewModeInfo = useSetAtom(reviewModeInfoAtom)
-  const isReviewMode = useAtomValue(isReviewModeAtom)
 
   useEffect(() => {
     // tick a zero timer to calc the stats
@@ -112,10 +99,6 @@ const ResultScreen = () => {
   }, [state.timerData.time])
 
   const repeatButtonHandler = useCallback(async () => {
-    if (isReviewMode) {
-      return
-    }
-
     setWordDictationConfig((old) => {
       if (old.isOpen) {
         if (old.openBy === 'auto') {
@@ -125,22 +108,14 @@ const ResultScreen = () => {
       return old
     })
     dispatch({ type: TypingStateActionType.REPEAT_CHAPTER, shouldShuffle: randomConfig.isOpen })
-  }, [isReviewMode, setWordDictationConfig, dispatch, randomConfig.isOpen])
+  }, [setWordDictationConfig, dispatch, randomConfig.isOpen])
 
   const dictationButtonHandler = useCallback(async () => {
-    if (isReviewMode) {
-      return
-    }
-
     setWordDictationConfig((old) => ({ ...old, isOpen: true, openBy: 'auto' }))
     dispatch({ type: TypingStateActionType.REPEAT_CHAPTER, shouldShuffle: randomConfig.isOpen })
-  }, [isReviewMode, setWordDictationConfig, dispatch, randomConfig.isOpen])
+  }, [setWordDictationConfig, dispatch, randomConfig.isOpen])
 
   const nextButtonHandler = useCallback(() => {
-    if (isReviewMode) {
-      return
-    }
-
     setWordDictationConfig((old) => {
       if (old.isOpen) {
         if (old.openBy === 'auto') {
@@ -153,22 +128,11 @@ const ResultScreen = () => {
       setCurrentChapter((old) => old + 1)
       dispatch({ type: TypingStateActionType.NEXT_CHAPTER })
     }
-  }, [dispatch, isLastChapter, isReviewMode, setCurrentChapter, setWordDictationConfig])
+  }, [dispatch, isLastChapter, setCurrentChapter, setWordDictationConfig])
 
   const exitButtonHandler = useCallback(() => {
-    if (isReviewMode) {
-      setCurrentChapter(0)
-      setReviewModeInfo((old) => ({ ...old, isReviewMode: false }))
-    } else {
-      dispatch({ type: TypingStateActionType.REPEAT_CHAPTER, shouldShuffle: false })
-    }
-  }, [dispatch, isReviewMode, setCurrentChapter, setReviewModeInfo])
-
-  const onNavigateToGallery = useCallback(() => {
-    setCurrentChapter(0)
-    setReviewModeInfo((old) => ({ ...old, isReviewMode: false }))
-    navigate('/gallery')
-  }, [navigate, setCurrentChapter, setReviewModeInfo])
+    dispatch({ type: TypingStateActionType.REPEAT_CHAPTER, shouldShuffle: false })
+  }, [dispatch])
 
   useHotkeys(
     'enter',
@@ -218,7 +182,7 @@ const ResultScreen = () => {
         <div className="flex h-screen items-center justify-center">
           <div className="my-card fixed flex w-[90vw] max-w-6xl flex-col overflow-hidden rounded-3xl bg-white pb-14 pl-10 pr-5 pt-10 shadow-lg dark:bg-gray-800 md:w-4/5 lg:w-3/5">
             <div className="text-center font-sans text-xl font-normal text-gray-900 dark:text-gray-400 md:text-2xl">
-              {`${currentDictInfo.name} ${isReviewMode ? '错题复习' : '第' + (currentChapter + 1) + '章'}`}
+              {`${currentDictInfo.name} 第${currentChapter + 1}章`}
             </div>
             <button className="absolute right-7 top-5" onClick={exitButtonHandler}>
               <IconX className="text-gray-400" />
@@ -241,12 +205,8 @@ const ResultScreen = () => {
               </div>
               <div className="ml-2 flex flex-col items-center justify-end gap-3 text-xl">
                 <AuthorButton />
-                {!isReviewMode && (
-                  <>
-                    <ShareButton />
-                    <IexportWords fontSize={18} className="cursor-pointer text-gray-500" onClick={exportWords}></IexportWords>
-                  </>
-                )}
+                <ShareButton />
+                <IexportWords fontSize={18} className="cursor-pointer text-gray-500" onClick={exportWords}></IexportWords>
                 <IconXiaoHongShu
                   fontSize={15}
                   className="cursor-pointer text-gray-500 hover:text-red-500 focus:outline-none"
@@ -286,31 +246,27 @@ const ResultScreen = () => {
               </div>
             </div>
             <div className="mt-10 flex w-full justify-center gap-5 px-5 text-xl">
-              {!isReviewMode && (
-                <>
-                  <Tooltip content="快捷键：shift + enter">
-                    <button
-                      className="my-btn-primary h-12 border-2 border-solid border-gray-300 bg-white text-base text-gray-700 dark:border-gray-700 dark:bg-gray-600 dark:text-white dark:hover:bg-gray-700"
-                      type="button"
-                      onClick={dictationButtonHandler}
-                      title="默写本章节"
-                    >
-                      默写本章节
-                    </button>
-                  </Tooltip>
-                  <Tooltip content="快捷键：space">
-                    <button
-                      className="my-btn-primary h-12 border-2 border-solid border-gray-300 bg-white text-base text-gray-700 dark:border-gray-700 dark:bg-gray-600 dark:text-white dark:hover:bg-gray-700"
-                      type="button"
-                      onClick={repeatButtonHandler}
-                      title="重复本章节"
-                    >
-                      重复本章节
-                    </button>
-                  </Tooltip>
-                </>
-              )}
-              {!isLastChapter && !isReviewMode && (
+              <Tooltip content="快捷键：shift + enter">
+                <button
+                  className="my-btn-primary h-12 border-2 border-solid border-gray-300 bg-white text-base text-gray-700 dark:border-gray-700 dark:bg-gray-600 dark:text-white dark:hover:bg-gray-700"
+                  type="button"
+                  onClick={dictationButtonHandler}
+                  title="默写本章节"
+                >
+                  默写本章节
+                </button>
+              </Tooltip>
+              <Tooltip content="快捷键：space">
+                <button
+                  className="my-btn-primary h-12 border-2 border-solid border-gray-300 bg-white text-base text-gray-700 dark:border-gray-700 dark:bg-gray-600 dark:text-white dark:hover:bg-gray-700"
+                  type="button"
+                  onClick={repeatButtonHandler}
+                  title="重复本章节"
+                >
+                  重复本章节
+                </button>
+              </Tooltip>
+              {!isLastChapter && (
                 <Tooltip content="快捷键：enter">
                   <button
                     className={`{ isLastChapter ? 'cursor-not-allowed opacity-50' : ''} my-btn-primary h-12 text-base font-bold `}
@@ -321,17 +277,6 @@ const ResultScreen = () => {
                     下一章节
                   </button>
                 </Tooltip>
-              )}
-
-              {isReviewMode && (
-                <button
-                  className="my-btn-primary h-12 text-base font-bold"
-                  type="button"
-                  onClick={onNavigateToGallery}
-                  title="练习其他章节"
-                >
-                  练习其他章节
-                </button>
               )}
             </div>
           </div>

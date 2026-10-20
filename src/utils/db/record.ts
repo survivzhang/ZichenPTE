@@ -1,5 +1,4 @@
 import { getUTCUnixTimestamp } from '../index'
-import type { Word } from '@/typings'
 
 export interface IWordRecord {
   word: string
@@ -63,8 +62,6 @@ export interface IChapterRecord {
   correctWordIndexes: number[]
   // 章节总单词数
   wordNumber: number
-  // 单词 record 的 id 列表
-  wordRecordIds: number[]
 }
 
 export class ChapterRecord implements IChapterRecord {
@@ -77,7 +74,6 @@ export class ChapterRecord implements IChapterRecord {
   wordCount: number
   correctWordIndexes: number[]
   wordNumber: number
-  wordRecordIds: number[]
 
   constructor(
     dict: string,
@@ -88,7 +84,6 @@ export class ChapterRecord implements IChapterRecord {
     wordCount: number,
     correctWordIndexes: number[],
     wordNumber: number,
-    wordRecordIds: number[],
   ) {
     this.dict = dict
     this.chapter = chapter
@@ -99,7 +94,6 @@ export class ChapterRecord implements IChapterRecord {
     this.wordCount = wordCount
     this.correctWordIndexes = correctWordIndexes
     this.wordNumber = wordNumber
-    this.wordRecordIds = wordRecordIds
   }
 
   get wpm() {
@@ -112,74 +106,5 @@ export class ChapterRecord implements IChapterRecord {
 
   get wordAccuracy() {
     return Math.round((this.correctWordIndexes.length / this.wordNumber) * 100)
-  }
-}
-
-export interface IReviewRecord {
-  id?: number
-  dict: string
-  // 当前练习进度
-  index: number
-  // 创建时间
-  createTime: number
-  // 是否已经完成
-  isFinished: boolean
-  // 单词列表, 根据复习算法生成和修改，可能会有重复值
-  words: Word[]
-}
-
-export class ReviewRecord implements IReviewRecord {
-  id?: number
-  dict: string
-  index: number
-  createTime: number
-  isFinished: boolean
-  words: Word[]
-
-  constructor(dict: string, words: Word[]) {
-    this.dict = dict
-    this.index = 0
-    this.createTime = getUTCUnixTimestamp()
-    this.words = words
-    this.isFinished = false
-  }
-}
-
-export interface IRevisionDictRecord {
-  dict: string
-  revisionIndex: number
-  createdTime: number
-}
-
-export class RevisionDictRecord implements IRevisionDictRecord {
-  dict: string
-  revisionIndex: number
-  createdTime: number
-
-  constructor(dict: string, revisionIndex: number, createdTime: number) {
-    this.dict = dict
-    this.revisionIndex = revisionIndex
-    this.createdTime = createdTime
-  }
-}
-
-export interface IRevisionWordRecord {
-  word: string
-  timeStamp: number
-  dict: string
-  errorCount: number
-}
-
-export class RevisionWordRecord implements IRevisionWordRecord {
-  word: string
-  timeStamp: number
-  dict: string
-  errorCount: number
-
-  constructor(word: string, dict: string, errorCount: number) {
-    this.word = word
-    this.timeStamp = getUTCUnixTimestamp()
-    this.dict = dict
-    this.errorCount = errorCount
   }
 }

@@ -11,19 +11,10 @@ import WordPanel from './components/WordPanel'
 import { useConfetti } from './hooks/useConfetti'
 import { useWordList } from './hooks/useWordList'
 import { TypingContext, TypingStateActionType, initialState, typingReducer } from './store'
-import { DonateCard } from '@/components/DonateCard'
 import Header from '@/components/Header'
 import Tooltip from '@/components/Tooltip'
 import { idDictionaryMap } from '@/resources/dictionary'
-import {
-  DEFAULT_DICT_ID,
-  currentChapterAtom,
-  currentDictIdAtom,
-  isReviewModeAtom,
-  randomConfigAtom,
-  reviewModeInfoAtom,
-  srsReviewAtom,
-} from '@/store'
+import { DEFAULT_DICT_ID, currentChapterAtom, currentDictIdAtom, randomConfigAtom, srsReviewAtom } from '@/store'
 import { IsDesktop, isLegal } from '@/utils'
 import { useSaveChapterRecord } from '@/utils/db'
 import { useDueReviews } from '@/utils/review'
@@ -45,9 +36,6 @@ const App: React.FC = () => {
   const setCurrentChapter = useSetAtom(currentChapterAtom)
   const randomConfig = useAtomValue(randomConfigAtom)
   const saveChapterRecord = useSaveChapterRecord()
-
-  const reviewModeInfo = useAtomValue(reviewModeInfoAtom)
-  const isReviewMode = useAtomValue(isReviewModeAtom)
 
   useEffect(() => {
     // 检测用户设备
@@ -105,11 +93,9 @@ const App: React.FC = () => {
 
   useEffect(() => {
     if (words !== undefined) {
-      const initialIndex = isReviewMode && reviewModeInfo.reviewRecord?.index ? reviewModeInfo.reviewRecord.index : 0
-
       dispatch({
         type: TypingStateActionType.SETUP_CHAPTER,
-        payload: { words, shouldShuffle: randomConfig.isOpen, initialIndex },
+        payload: { words, shouldShuffle: randomConfig.isOpen },
       })
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -139,7 +125,6 @@ const App: React.FC = () => {
 
   return (
     <TypingContext.Provider value={{ state: state, dispatch }}>
-      {state.isFinished && !srsReview.active && <DonateCard />}
       {state.isFinished && !srsReview.active && <ResultScreen />}
       {state.isFinished && srsReview.active && (
         <ReviewDoneScreen

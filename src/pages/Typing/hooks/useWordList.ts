@@ -1,6 +1,6 @@
 import { CHAPTER_LENGTH } from '@/constants'
 import { isPteDict, pteDictIds } from '@/resources/pte'
-import { currentChapterAtom, currentDictInfoAtom, reviewModeInfoAtom, srsReviewAtom } from '@/store'
+import { currentChapterAtom, currentDictInfoAtom, srsReviewAtom } from '@/store'
 import type { Word, WordWithIndex } from '@/typings/index'
 import { getJSON } from '@/utils/api'
 import { wordListFetcher } from '@/utils/wordListFetcher'
@@ -24,12 +24,10 @@ const fetchPracticedWords = async (key: string) => new Set((await getJSON<{ word
 export function useWordList(): UseWordListResult {
   const currentDictInfo = useAtomValue(currentDictInfoAtom)
   const [currentChapter, setCurrentChapter] = useAtom(currentChapterAtom)
-  const { isReviewMode, reviewRecord } = useAtomValue(reviewModeInfoAtom)
   const srsReview = useAtomValue(srsReviewAtom)
 
   // PTE dictionaries share words: skip ones already practiced in another PTE dictionary.
-  const otherPteDicts =
-    !srsReview.active && !isReviewMode && isPteDict(currentDictInfo) ? pteDictIds.filter((id) => id !== currentDictInfo.id) : []
+  const otherPteDicts = !srsReview.active && isPteDict(currentDictInfo) ? pteDictIds.filter((id) => id !== currentDictInfo.id) : []
   const { data: practicedElsewhere } = useSWR(
     otherPteDicts.length ? `/words/practiced?dicts=${otherPteDicts.join(',')}` : null,
     fetchPracticedWords,
@@ -42,7 +40,7 @@ export function useWordList(): UseWordListResult {
     setCurrentChapter(0)
   }
 
-  const isFirstChapter = !isReviewMode && currentDictInfo.id === 'cet4' && currentChapter === 0
+  const isFirstChapter = currentDictInfo.id === 'cet4' && currentChapter === 0
   const { data: wordList, error, isLoading } = useSWR(currentDictInfo.url, wordListFetcher)
 
   const words: WordWithIndex[] = useMemo(() => {
@@ -53,8 +51,6 @@ export function useWordList(): UseWordListResult {
       newWords = []
     } else if (isFirstChapter) {
       newWords = firstChapter
-    } else if (isReviewMode) {
-      newWords = reviewRecord?.words ?? []
     } else if (wordList) {
       newWords = wordList.slice(currentChapter * CHAPTER_LENGTH, (currentChapter + 1) * CHAPTER_LENGTH)
       if (practicedElsewhere) {
@@ -80,7 +76,7 @@ export function useWordList(): UseWordListResult {
         trans,
       }
     })
-  }, [srsReview, isWaitingForPracticed, practicedElsewhere, isFirstChapter, isReviewMode, wordList, reviewRecord?.words, currentChapter])
+  }, [srsReview, isWaitingForPracticed, practicedElsewhere, isFirstChapter, wordList, currentChapter])
 
   const isChapterAllSkipped = !srsReview.active && !!wordList && !!practicedElsewhere && words.length === 0
 

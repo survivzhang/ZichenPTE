@@ -1,7 +1,6 @@
 import type { TypingState, UserInputLog } from './type'
 import type { WordWithIndex } from '@/typings'
 import type { LetterMistakes } from '@/utils/db/record'
-import '@/utils/db/review-record'
 import { mergeLetterMistake } from '@/utils/db/utils'
 import shuffle from '@/utils/shuffle'
 import { createContext } from 'react'
@@ -13,7 +12,6 @@ export const initialState: TypingState = {
     wordCount: 0,
     correctCount: 0,
     wrongCount: 0,
-    wordRecordIds: [],
     userInputLogs: [],
   },
   timerData: {
@@ -54,7 +52,6 @@ export enum TypingStateActionType {
   TOGGLE_WORD_VISIBLE = 'TOGGLE_WORD_VISIBLE',
   TOGGLE_TRANS_VISIBLE = 'TOGGLE_TRANS_VISIBLE',
   TICK_TIMER = 'TICK_TIMER',
-  ADD_WORD_RECORD_ID = 'ADD_WORD_RECORD_ID',
   SET_IS_SAVING_RECORD = 'SET_IS_SAVING_RECORD',
   SET_IS_LOOP_SINGLE_WORD = 'SET_IS_LOOP_SINGLE_WORD',
   TOGGLE_IS_LOOP_SINGLE_WORD = 'TOGGLE_IS_LOOP_SINGLE_WORD',
@@ -68,12 +65,7 @@ export type TypingStateAction =
   | { type: TypingStateActionType.TOGGLE_IS_TYPING }
   | { type: TypingStateActionType.REPORT_WRONG_WORD; payload: { letterMistake: LetterMistakes } }
   | { type: TypingStateActionType.REPORT_CORRECT_WORD }
-  | {
-      type: TypingStateActionType.NEXT_WORD
-      payload?: {
-        updateReviewRecord?: (state: TypingState) => void
-      }
-    }
+  | { type: TypingStateActionType.NEXT_WORD }
   | { type: TypingStateActionType.LOOP_CURRENT_WORD }
   | { type: TypingStateActionType.FINISH_CHAPTER }
   | { type: TypingStateActionType.SKIP_WORD }
@@ -82,7 +74,6 @@ export type TypingStateAction =
   | { type: TypingStateActionType.NEXT_CHAPTER }
   | { type: TypingStateActionType.TOGGLE_TRANS_VISIBLE }
   | { type: TypingStateActionType.TICK_TIMER; addTime?: number }
-  | { type: TypingStateActionType.ADD_WORD_RECORD_ID; payload: number }
   | { type: TypingStateActionType.SET_IS_SAVING_RECORD; payload: boolean }
   | { type: TypingStateActionType.SET_IS_LOOP_SINGLE_WORD; payload: boolean }
   | { type: TypingStateActionType.TOGGLE_IS_LOOP_SINGLE_WORD }
@@ -134,10 +125,6 @@ export const typingReducer = (state: TypingState, action: TypingStateAction) => 
       state.chapterData.index += 1
       state.chapterData.wordCount += 1
       state.isShowSkip = false
-
-      if (action?.payload?.updateReviewRecord) {
-        action.payload.updateReviewRecord(state)
-      }
       break
     }
     case TypingStateActionType.LOOP_CURRENT_WORD:
@@ -199,10 +186,6 @@ export const typingReducer = (state: TypingState, action: TypingStateAction) => 
       state.timerData.time = newTime
       state.timerData.accuracy = Math.round((state.chapterData.correctCount / inputSum) * 100)
       state.timerData.wpm = Math.round((state.chapterData.wordCount / newTime) * 60)
-      break
-    }
-    case TypingStateActionType.ADD_WORD_RECORD_ID: {
-      state.chapterData.wordRecordIds.push(action.payload)
       break
     }
     case TypingStateActionType.SET_IS_SAVING_RECORD: {

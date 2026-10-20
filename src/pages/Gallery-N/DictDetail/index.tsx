@@ -2,7 +2,7 @@ import Chapter from '../Chapter'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Tabs, TabsContent } from '@/components/ui/tabs'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
-import { currentChapterAtom, currentDictIdAtom, reviewModeInfoAtom, srsReviewAtom } from '@/store'
+import { currentChapterAtom, currentDictIdAtom, srsReviewAtom } from '@/store'
 import type { Dictionary } from '@/typings'
 import range from '@/utils/range'
 import { useAtom, useSetAtom } from 'jotai'
@@ -18,7 +18,6 @@ export default function DictDetail({ dictionary: dict }: { dictionary: Dictionar
   const [currentChapter, setCurrentChapter] = useAtom(currentChapterAtom)
   const [currentDictId, setCurrentDictId] = useAtom(currentDictIdAtom)
   const [curTab, setCurTab] = useState<Tab>(Tab.Chapters)
-  const setReviewModeInfo = useSetAtom(reviewModeInfoAtom)
   const setSrsReview = useSetAtom(srsReviewAtom)
   const navigate = useNavigate()
 
@@ -28,11 +27,10 @@ export default function DictDetail({ dictionary: dict }: { dictionary: Dictionar
     (index: number) => {
       setCurrentDictId(dict.id)
       setCurrentChapter(index)
-      setReviewModeInfo((old) => ({ ...old, isReviewMode: false }))
       setSrsReview({ active: false, words: [] })
       navigate('/practice')
     },
-    [dict.id, navigate, setCurrentChapter, setCurrentDictId, setReviewModeInfo, setSrsReview],
+    [dict.id, navigate, setCurrentChapter, setCurrentDictId, setSrsReview],
   )
 
   const handleTabChange = useCallback(

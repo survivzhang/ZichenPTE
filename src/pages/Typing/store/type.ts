@@ -15,7 +15,6 @@ export type ChapterData = {
   // 每个单词的输入记录
   userInputLogs: UserInputLog[]
   // 本章节用户输入的单词的 record id 列表
-  wordRecordIds: number[]
 }
 
 export type UserInputLog = {

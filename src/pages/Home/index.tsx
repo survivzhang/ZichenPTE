@@ -5,15 +5,14 @@ import useStartReview from '@/hooks/useStartReview'
 import { CategoryPath, DictGrid } from '@/pages/Gallery-N/CategoryAccordion'
 import { idDictionaryMap } from '@/resources/dictionary'
 import { PTE_CATEGORY, PTE_TAG, pteDictionaries } from '@/resources/pte'
-import { currentChapterAtom, currentDictIdAtom, reviewModeInfoAtom, srsReviewAtom } from '@/store'
+import { currentChapterAtom, currentDictIdAtom, srsReviewAtom } from '@/store'
 import { getJSON } from '@/utils/api'
 import { authClient } from '@/utils/auth-client'
-import { db } from '@/utils/db'
-import { mergeLocalErrorBook } from '@/utils/mergeLocalErrorBook'
 import { useDueReviews } from '@/utils/review'
 import { useAtom, useSetAtom } from 'jotai'
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import useSWR from 'swr'
 import IconArrowRight from '~icons/tabler/arrow-right'
 import IconLock from '~icons/tabler/lock'
 
@@ -30,31 +29,12 @@ type Recommendation =
   | { kind: 'next'; chapter: number; finished: number }
   | { kind: 'dictDone' }
 
-/** Chapters of `dictId` finished at least once, from the account and from this browser's local history. */
+/** Chapters of `dictId` finished at least once (null while loading). */
 function useCompletedChapters(dictId: string) {
-  const [completed, setCompleted] = useState<Set<number> | null>(null)
-
-  useEffect(() => {
-    let cancelled = false
-    setCompleted(null)
-    Promise.all([
-      getJSON<{ completedChapters: number[] }>(`/progress?dict=${encodeURIComponent(dictId)}`),
-      db.chapterRecords
-        .where('dict')
-        .equals(dictId)
-        .toArray()
-        .catch(() => []),
-    ]).then(([server, local]) => {
-      if (cancelled) return
-      const chapters = [...(server?.completedChapters ?? []), ...local.map((record) => record.chapter ?? -1)]
-      setCompleted(new Set(chapters.filter((chapter) => chapter >= 0)))
-    })
-    return () => {
-      cancelled = true
-    }
-  }, [dictId])
-
-  return completed
+  const { data } = useSWR(`progress-${dictId}`, () =>
+    getJSON<{ completedChapters: number[] }>(`/progress?dict=${encodeURIComponent(dictId)}`),
+  )
+  return useMemo(() => (data ? new Set(data.completedChapters.filter((chapter) => chapter >= 0)) : null), [data])
 }
 
 export default function HomePage() {
@@ -62,17 +42,11 @@ export default function HomePage() {
   const { data: session } = authClient.useSession()
   const [currentDictId] = useAtom(currentDictIdAtom)
   const [currentChapter, setCurrentChapter] = useAtom(currentChapterAtom)
-  const setReviewModeInfo = useSetAtom(reviewModeInfoAtom)
   const setSrsReview = useSetAtom(srsReviewAtom)
-  const { count: dueCount, refresh: refreshDue } = useDueReviews()
+  const { count: dueCount } = useDueReviews()
   const startReview = useStartReview()
   const [module, setModule] = useState<ModuleId>('vocabulary')
-  const userId = session?.user.id
 
-  // Fold this browser's pre-account error book into the review queue (once per account).
-  useEffect(() => {
-    if (userId) mergeLocalErrorBook(userId).then(() => refreshDue())
-  }, [userId, refreshDue])
   const dict = idDictionaryMap[currentDictId]
   const completed = useCompletedChapters(currentDictId)
 
@@ -91,7 +65,6 @@ export default function HomePage() {
 
   const startPractice = (chapter: number) => {
     setCurrentChapter(chapter)
-    setReviewModeInfo((old) => ({ ...old, isReviewMode: false }))
     setSrsReview({ active: false, words: [] })
     navigate('/practice')
   }

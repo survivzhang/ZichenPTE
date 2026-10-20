@@ -3,7 +3,7 @@ import { db } from './db/index.js'
 import { apiKey, chapterRecord, user, userPreference, wordRecord } from './db/schema.js'
 import { CARD_TYPES, dueCards, importSentences, importWords, listCards, parseFib, recordAnswer } from './srs.js'
 import { isTtsConfigured, synthesize } from './tts.js'
-import { and, asc, desc, eq, gte, inArray, isNull } from 'drizzle-orm'
+import { and, asc, between, count, countDistinct, desc, eq, gte, inArray, isNull, sql } from 'drizzle-orm'
 import { Hono } from 'hono'
 import { createMiddleware } from 'hono/factory'
 import { createHash, randomBytes, randomUUID } from 'node:crypto'
@@ -122,6 +122,59 @@ app.on(['GET', 'POST'], '/auth/*', (c) => auth.handler(c.req.raw))
 app.use('/records/*', requireUser)
 app.use('/preferences', requireUser)
 app.use('/progress', requireUser)
+app.use('/stats/*', requireUser)
+
+// Word records in a time range (unix seconds), for the statistics page.
+app.get('/stats/words', async (c) => {
+  const from = Number(c.req.query('from'))
+  const to = Number(c.req.query('to'))
+  if (!Number.isFinite(from) || !Number.isFinite(to) || from > to) {
+    return c.json({ error: 'from/to must be unix seconds' }, 400)
+  }
+  const rows = await db
+    .select({
+      word: wordRecord.word,
+      typedAt: wordRecord.typedAt,
+      timing: wordRecord.timing,
+      wrongCount: wordRecord.wrongCount,
+      mistakes: wordRecord.mistakes,
+    })
+    .from(wordRecord)
+    .where(and(eq(wordRecord.userId, c.get('userId')), between(wordRecord.typedAt, new Date(from * 1000), new Date(to * 1000))))
+    .orderBy(asc(wordRecord.typedAt))
+  return c.json({
+    records: rows.map(({ typedAt, ...row }) => ({ ...row, timeStamp: Math.floor(typedAt.getTime() / 1000) })),
+  })
+})
+
+// How many distinct chapters of each dictionary have been finished, for the dictionary cards.
+app.get('/stats/dicts', async (c) => {
+  const rows = await db
+    .select({ dict: chapterRecord.dict, chapters: countDistinct(chapterRecord.chapter) })
+    .from(chapterRecord)
+    .where(and(eq(chapterRecord.userId, c.get('userId')), gte(chapterRecord.chapter, 0)))
+    .groupBy(chapterRecord.dict)
+  return c.json({ dicts: Object.fromEntries(rows.map((row) => [row.dict, row.chapters])) })
+})
+
+// Per-chapter totals for one dictionary, for the chapter picker.
+app.get('/stats/chapters', async (c) => {
+  const dict = c.req.query('dict')
+  if (!dict || dict.length > 200) return c.json({ error: 'Missing dict' }, 400)
+  const rows = await db
+    .select({
+      chapter: chapterRecord.chapter,
+      exerciseCount: count(),
+      wrongWordTotal: sql<number>`sum(${chapterRecord.wordNumber} - jsonb_array_length(${chapterRecord.correctWordIndexes}))`.mapWith(
+        Number,
+      ),
+      wrongInputTotal: sql<number>`sum(${chapterRecord.wrongCount})`.mapWith(Number),
+    })
+    .from(chapterRecord)
+    .where(and(eq(chapterRecord.userId, c.get('userId')), eq(chapterRecord.dict, dict), gte(chapterRecord.chapter, 0)))
+    .groupBy(chapterRecord.chapter)
+  return c.json({ chapters: rows })
+})
 app.use('/review/*', requireUser)
 app.use('/words/*', requireUser)
 app.use('/api-keys', requireUser, requireAdmin)
