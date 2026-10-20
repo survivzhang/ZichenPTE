@@ -11,9 +11,12 @@ import type { PluginOption } from 'vite'
 
 // https://vitejs.dev/config/
 export default defineConfig(async ({ mode }) => {
-  const latestCommitHash = await new Promise<string>((resolve) => {
-    return getLastCommit((err, commit) => (err ? 'unknown' : resolve(commit.shortHash)))
-  })
+  // Vercel builds may not include a .git directory, so prefer the commit it provides.
+  const latestCommitHash =
+    process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ??
+    (await new Promise<string>((resolve) => {
+      getLastCommit((err, commit) => resolve(err ? 'unknown' : commit.shortHash))
+    }))
   return {
     plugins: [
       react({ babel: { plugins: [jotaiDebugLabel, jotaiReactRefresh] } }),
