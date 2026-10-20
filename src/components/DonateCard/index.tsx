@@ -3,7 +3,6 @@ import { DonatingCard } from '../DonatingCard'
 import { StickerButton } from '../DonatingCard/components/StickerButton'
 import { useChapterNumber, useDayFromFirstWordRecord, useSumWrongCount, useWordNumber } from './hooks/useWordStats'
 import { DONATE_DATE } from '@/constants'
-import { reportDonateCard } from '@/utils'
 import noop from '@/utils/noop'
 import { Dialog, Transition } from '@headlessui/react'
 import dayjs from 'dayjs'
@@ -30,32 +29,12 @@ export const DonateCard = () => {
   }
 
   const onClickHasDonated = () => {
-    reportDonateCard({
-      type: 'donate',
-      chapterNumber,
-      wordNumber,
-      sumWrongCount,
-      dayFromFirstWord,
-      dayFromQwerty,
-      amount: amount ?? 0,
-    })
-
     setShow(false)
     const now = dayjs()
     window.localStorage.setItem(DONATE_DATE, now.format())
   }
 
   const onClickRemindMeLater = () => {
-    reportDonateCard({
-      type: 'dismiss',
-      chapterNumber,
-      wordNumber,
-      sumWrongCount,
-      dayFromFirstWord,
-      dayFromQwerty,
-      amount: amount ?? 0,
-    })
-
     setShow(false)
   }
 

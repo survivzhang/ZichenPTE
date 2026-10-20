@@ -10,7 +10,6 @@ import shareImage8 from '@/assets/sharePic/image-8.png'
 import shareImage9 from '@/assets/sharePic/image-9.png'
 import keyboardSvg from '@/assets/sharePic/keyBackground.svg'
 import { currentChapterAtom, currentDictInfoAtom } from '@/store'
-import { recordShareAction } from '@/utils'
 import { Dialog, Transition } from '@headlessui/react'
 import { useAtomValue } from 'jotai'
 import { Fragment, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
@@ -82,7 +81,6 @@ export default function SharePicDialog({ showState, setShowState, randomChoose }
 
     if (imageURL) {
       saveAs(imageURL, 'Qwerty-learner.png')
-      recordShareAction('download')
     }
   }, [imageURL])
 

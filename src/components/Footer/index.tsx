@@ -5,7 +5,6 @@ import InfoPanel from '@/components/InfoPanel'
 import Tooltip from '@/components/Tooltip'
 import { infoPanelStateAtom } from '@/store'
 import type { InfoPanelType } from '@/typings'
-import { recordOpenInfoPanelAction } from '@/utils'
 import { useAtom } from 'jotai'
 import type React from 'react'
 import { useCallback } from 'react'
@@ -29,7 +28,6 @@ const Footer: React.FC = () => {
 
   const handleOpenInfoPanel = useCallback(
     (modalType: InfoPanelType) => {
-      recordOpenInfoPanelAction(modalType, 'footer')
       setInfoPanelState((state) => ({ ...state, [modalType]: true }))
     },
     [setInfoPanelState],

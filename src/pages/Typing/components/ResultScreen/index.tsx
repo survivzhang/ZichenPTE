@@ -16,7 +16,6 @@ import {
   wordDictationConfigAtom,
 } from '@/store'
 import type { InfoPanelType } from '@/typings'
-import { recordOpenInfoPanelAction } from '@/utils'
 import { Transition } from '@headlessui/react'
 import { useAtom, useAtomValue, useSetAtom } from 'jotai'
 import { useCallback, useContext, useEffect, useMemo } from 'react'
@@ -199,7 +198,6 @@ const ResultScreen = () => {
 
   const handleOpenInfoPanel = useCallback(
     (modalType: InfoPanelType) => {
-      recordOpenInfoPanelAction(modalType, 'resultScreen')
       setInfoPanelState((state) => ({ ...state, [modalType]: true }))
     },
     [setInfoPanelState],

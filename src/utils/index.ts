@@ -1,8 +1,6 @@
 import { CHAPTER_LENGTH } from '@/constants'
 import type { Howl } from 'howler'
 
-export * from './mixpanel'
-
 const bannedKeys = [
   'Enter',
   'Backspace',
@@ -126,4 +124,9 @@ export function timeStamp2String(timestamp: number) {
   const timeString = date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false })
 
   return `${dateString} ${timeString}`
+}
+
+/** Current UTC time as "YYYY-MM-DD HH:mm:ss". */
+export function getUtcTimeString() {
+  return new Date().toISOString().substring(0, 19).replace('T', ' ')
 }

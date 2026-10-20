@@ -1,29 +1,49 @@
-import DictionaryGroup from './CategoryDicts'
+import type { CategoryGroup } from './CategoryAccordion'
+import CategoryAccordion, { CategoryPath, DictGrid } from './CategoryAccordion'
 import DictRequest from './DictRequest'
 import Layout from '@/components/Layout'
 import { dictionaries } from '@/resources/dictionary'
-import type { Dictionary } from '@/typings'
+import { currentDictInfoAtom } from '@/store'
 import groupBy, { groupByDictTags } from '@/utils/groupBy'
 import * as ScrollArea from '@radix-ui/react-scroll-area'
-import { useCallback, useMemo } from 'react'
+import { useAtomValue } from 'jotai'
+import { useCallback, useMemo, useState } from 'react'
 import { useHotkeys } from 'react-hotkeys-hook'
 import { useNavigate } from 'react-router-dom'
 import IconInfo from '~icons/ic/outline-info'
 import IconX from '~icons/tabler/x'
 
+// Shown expanded at the top of the page; everything else is collapsed below it.
+const FEATURED = { category: '国际考试', tag: 'PTE' }
+
+const isFeatured = (category: string, tag: string) => category === FEATURED.category && tag === FEATURED.tag
+
 export default function GalleryPage() {
   const navigate = useNavigate()
+  const currentDictInfo = useAtomValue(currentDictInfoAtom)
 
-  const { groupedByCategoryAndTag } = useMemo(() => {
-    const groupedByCategory = Object.entries(groupBy(dictionaries, (dict) => dict.category))
-    const groupedByCategoryAndTag = groupedByCategory.map(
-      ([category, dicts]) => [category, groupByDictTags(dicts)] as [string, Record<string, Dictionary[]>],
-    )
-
-    return {
-      groupedByCategoryAndTag,
-    }
+  const { featuredDicts, otherGroups } = useMemo(() => {
+    const featuredDicts = dictionaries.filter((dict) => dict.category === FEATURED.category && dict.tags.includes(FEATURED.tag))
+    const otherGroups: CategoryGroup[] = Object.entries(groupBy(dictionaries, (dict) => dict.category))
+      .map(([category, dicts]) => {
+        const tags = Object.entries(groupByDictTags(dicts))
+          .filter(([tag]) => !isFeatured(category, tag))
+          .map(([tag, tagDicts]) => ({ tag, dicts: tagDicts }))
+        // A dictionary can carry several tags; count each one once.
+        const dictCount = new Set(tags.flatMap(({ dicts }) => dicts.map((dict) => dict.id))).size
+        return { category, dictCount, tags }
+      })
+      .filter((group) => group.tags.length > 0)
+    return { featuredDicts, otherGroups }
   }, [])
+
+  // If the dictionary in use lives in a collapsed section, open that section on arrival.
+  const [initialOpen] = useState(() => {
+    const tag = currentDictInfo.tags.find((tag) => !isFeatured(currentDictInfo.category, tag))
+    return tag && !currentDictInfo.tags.some((t) => isFeatured(currentDictInfo.category, t))
+      ? { category: currentDictInfo.category, tag }
+      : undefined
+  })
 
   const onBack = useCallback(() => {
     navigate('/')
@@ -42,10 +62,17 @@ export default function GalleryPage() {
             </div>
             <ScrollArea.Root className="flex-1 overflow-y-auto">
               <ScrollArea.Viewport className="h-full w-full ">
-                <div className="mr-4 flex flex-1 flex-col items-start justify-start gap-14 overflow-y-auto">
-                  {groupedByCategoryAndTag.map(([category, groupeByTag]) => (
-                    <DictionaryGroup key={category} groupedDictsByTag={groupeByTag} />
-                  ))}
+                <div className="mr-4 flex flex-1 flex-col gap-14 overflow-y-auto pr-16">
+                  <section>
+                    <div className="mb-6">
+                      <CategoryPath category={FEATURED.category} tag={FEATURED.tag} />
+                    </div>
+                    <DictGrid dicts={featuredDicts} />
+                  </section>
+                  <section>
+                    <h2 className="mb-3 text-xl font-semibold text-gray-700 dark:text-gray-200">其他词典</h2>
+                    <CategoryAccordion groups={otherGroups} initialOpen={initialOpen} />
+                  </section>
                 </div>
                 <div className="flex items-center justify-center pb-10 pt-[20rem] text-gray-500">
                   <IconInfo className="mr-1 h-5 w-5" />
