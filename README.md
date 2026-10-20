@@ -17,7 +17,7 @@
 
 应用不开放注册：先用命令创建一个管理员账号，其他人的账号由管理员在应用内的「用户管理」页面创建。
 
-错词复习用 FSRS 间隔重复算法：学习时第一遍打错的词进入复习队列，每天必须先完成到期的复习才能学新内容。管理员可以在「用户管理」页生成 API 密钥，通过 `/api/v1` 导入错词，用法见 [docs/API.md](docs/API.md)。所有改动、部署和环境变量记录在 [docs/CHANGELOG.md](docs/CHANGELOG.md)。
+错词复习用 FSRS 间隔重复算法：学习时第一遍打错的词进入复习队列，每天必须先完成到期的复习才能学新内容。管理员可以在「用户管理」页生成 API 密钥，通过 `/api/v1` 导入错词，用法见 [docs/API.md](docs/API.md)。修改日志见 [docs/CHANGELOG.md](docs/CHANGELOG.md)，部署和环境变量见 [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)。
 
 **本地运行**（需要 Docker）：
 
