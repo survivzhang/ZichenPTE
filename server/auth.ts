@@ -16,6 +16,10 @@ const vercelOrigins = [process.env.VERCEL_URL, process.env.VERCEL_BRANCH_URL, pr
  * after that, admins add everyone else from the in-app admin page.
  */
 export const auth = betterAuth({
+  // BETTER_AUTH_URL wins when set; on Vercel fall back to the production domain.
+  baseURL:
+    process.env.BETTER_AUTH_URL ??
+    (process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : undefined),
   basePath: '/api/auth',
   database: drizzleAdapter(db, { provider: 'pg', schema }),
   emailAndPassword: {
