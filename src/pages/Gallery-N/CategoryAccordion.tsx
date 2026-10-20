@@ -1,5 +1,6 @@
 import DictionaryComponent from './DictionaryWithoutCover'
 import type { Dictionary } from '@/typings'
+import type React from 'react'
 import { useState } from 'react'
 import IconChevronRight from '~icons/tabler/chevron-right'
 
@@ -9,9 +10,10 @@ export type CategoryGroup = {
   tags: { tag: string; dicts: Dictionary[] }[]
 }
 
-export function DictGrid({ dicts }: { dicts: Dictionary[] }) {
+export function DictGrid({ dicts, children }: { dicts: Dictionary[]; children?: React.ReactNode }) {
   return (
     <div className="grid gap-x-5 gap-y-10 px-1 pb-4 sm:grid-cols-1 md:grid-cols-2 dic3:grid-cols-3 dic4:grid-cols-4">
+      {children}
       {dicts.map((dict) => (
         <DictionaryComponent key={dict.id} dictionary={dict} />
       ))}

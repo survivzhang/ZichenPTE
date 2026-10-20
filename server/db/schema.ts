@@ -261,3 +261,26 @@ export const ttsAudio = pgTable('tts_audio', {
   audio: text('audio').notNull(),
   createdAt: createdAt(),
 })
+
+// The user's own PTE question bank (FIB collocations, WFD sentences), imported
+// via the API. Practiced in chapters by import date; a first-try mistake turns
+// an item into a review card (review_card type fib / wfd).
+export const practiceItem = pgTable(
+  'practice_item',
+  {
+    id: serial('id').primaryKey(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    type: text('type').notNull(),
+    // same key as the matching review card: fib keeps its [blank], wfd is normalized
+    key: text('key').notNull(),
+    sentence: text('sentence').notNull(),
+    trans: jsonb('trans').$type<string[]>().notNull().default([]),
+    note: text('note'),
+    // YYYY-MM-DD in the app's timezone; chapters are grouped by this date
+    importDate: text('import_date').notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [uniqueIndex('practice_item_user_type_key_idx').on(t.userId, t.type, t.key)],
+)

@@ -1,3 +1,4 @@
+import BankCards from './BankCards'
 import PracticeMistakes from './PracticeMistakes'
 import AppNav from '@/components/AppNav'
 import Layout from '@/components/Layout'
@@ -192,7 +193,9 @@ export default function HomePage() {
               <div className="mb-6">
                 <CategoryPath category={PTE_CATEGORY} tag={`${PTE_TAG} 词汇`} />
               </div>
-              <DictGrid dicts={pteDictionaries} />
+              <DictGrid dicts={pteDictionaries}>
+                <BankCards isLocked={isLocked} />
+              </DictGrid>
             </section>
           )}
         </div>

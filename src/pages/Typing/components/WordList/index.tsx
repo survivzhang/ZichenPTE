@@ -14,7 +14,7 @@ import IconX from '~icons/tabler/x'
 const currentDictTitle = atom((get) => {
   const session = get(srsReviewAtom)
   if (session.active) {
-    return sessionLabel(session.type, session.mode)
+    return sessionLabel(session.type, session.mode, session.title)
   }
   return `${get(currentDictInfoAtom).name} 第 ${get(currentChapterAtom) + 1} 章`
 })

@@ -133,11 +133,19 @@ export const SRS_REVIEW_DICT = 'srs-review'
 export type SessionType = 'word' | 'fib' | 'wfd'
 
 /**
- * A session of review cards on the practice page, kept in memory (the list is
- * re-fetched from the server). type word + mode review = the daily review;
- * fib/wfd = the optional PTE practice; mode learn = practicing outside the schedule.
+ * A session on the practice page that isn't a word-book chapter, kept in memory.
+ * - mode review: due review cards (type word = the mandatory daily review; fib/wfd optional)
+ * - mode learn: all review cards of a type, practiced outside the schedule
+ * - mode bank: a chapter of the user's FIB / WFD question bank (`chapter`, `title`)
  */
-export const srsReviewAtom = atom<{ active: boolean; words: Word[]; type?: SessionType; mode?: 'review' | 'learn' }>({
+export const srsReviewAtom = atom<{
+  active: boolean
+  words: Word[]
+  type?: SessionType
+  mode?: 'review' | 'learn' | 'bank'
+  chapter?: number
+  title?: string
+}>({
   active: false,
   words: [],
 })

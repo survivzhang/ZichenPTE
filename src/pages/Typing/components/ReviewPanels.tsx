@@ -1,9 +1,9 @@
 import { CHAPTER_LENGTH } from '@/constants'
-import useStartReview from '@/hooks/useStartReview'
+import useStartReview, { useStartBankChapter } from '@/hooks/useStartReview'
 import { currentChapterAtom, currentDictInfoAtom, srsReviewAtom } from '@/store'
 import { getUTCUnixTimestamp } from '@/utils'
 import { postJSON } from '@/utils/api'
-import { sessionLabel } from '@/utils/review'
+import { bankChapterTitle, sessionLabel, useBank } from '@/utils/review'
 import { useAtom, useAtomValue } from 'jotai'
 import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -68,14 +68,28 @@ export function ChapterSkippedPanel() {
 /** End of a daily review session. */
 export function ReviewDoneScreen({ total, firstTryCorrect }: { total: number; firstTryCorrect: number }) {
   const [session, setSrsReview] = useAtom(srsReviewAtom)
-  const label = sessionLabel(session.type, session.mode)
+  const label = sessionLabel(session.type, session.mode, session.title)
   const unit = session.type === 'fib' || session.type === 'wfd' ? '句' : '词'
   const navigate = useNavigate()
+  const isBank = session.mode === 'bank' && (session.type === 'fib' || session.type === 'wfd')
+  const bankChapters = useBank(session.type === 'fib' ? 'fib' : 'wfd')
+  const position = bankChapters?.findIndex((chapter) => chapter.index === session.chapter) ?? -1
+  const nextChapter = isBank && position >= 0 ? bankChapters?.[position + 1] : undefined
+  const startBankChapter = useStartBankChapter()
+
+  // The finished chapter changed review cards and bank progress.
+  const refresh = () => mutate((key) => typeof key === 'string' && (key.startsWith('review-') || key.startsWith('bank-')))
 
   const finish = () => {
     setSrsReview({ active: false, words: [] })
-    mutate((key) => typeof key === 'string' && key.startsWith('review-'))
+    refresh()
     navigate('/')
+  }
+
+  const goNext = () => {
+    if (!nextChapter || (session.type !== 'fib' && session.type !== 'wfd')) return
+    refresh()
+    startBankChapter(session.type, nextChapter)
   }
 
   return (
@@ -86,10 +100,25 @@ export function ReviewDoneScreen({ total, firstTryCorrect }: { total: number; fi
           共 {total} {unit} · 第一遍就对 <span className="font-semibold text-green-600">{firstTryCorrect}</span> · 第一遍错{' '}
           <span className="font-semibold text-red-500">{total - firstTryCorrect}</span>
         </p>
-        <p className="mt-1 text-sm text-gray-400">错的词明天会再出现，对的词间隔会越来越长。</p>
-        <button type="button" autoFocus onClick={finish} className={primaryButtonClass}>
-          返回首页
-        </button>
+        <p className="mt-1 text-sm text-gray-400">
+          {isBank
+            ? `第一遍错的${unit}已加入${session.type === 'fib' ? ' FIB' : ' WFD'} 错题，可在「练习中错题」里复习。`
+            : '错的明天会再出现，对的间隔会越来越长。'}
+        </p>
+        {nextChapter ? (
+          <>
+            <button type="button" autoFocus onClick={goNext} className={primaryButtonClass}>
+              下一组 · {bankChapterTitle(nextChapter)}
+            </button>
+            <button type="button" onClick={finish} className={secondaryButtonClass}>
+              返回首页
+            </button>
+          </>
+        ) : (
+          <button type="button" autoFocus onClick={finish} className={primaryButtonClass}>
+            返回首页
+          </button>
+        )}
       </div>
     </div>
   )

@@ -8,14 +8,14 @@ import IconArrowRight from '~icons/tabler/arrow-right'
 const SECTIONS: { type: Exclude<SessionType, 'word'>; title: string; description: string; unit: string }[] = [
   {
     type: 'fib',
-    title: 'FIB 固定搭配',
-    description: '句子挖空，只拼空里的搭配词。第一遍没有发音和提示，打错后才可以听、可以看。',
+    title: 'FIB 固定搭配错题',
+    description: '练 FIB 题库时第一遍打错的搭配。按 FSRS 建议复习，不强制。',
     unit: '句',
   },
   {
     type: 'wfd',
-    title: 'WFD 拼写',
-    description: '听整句发音，凭记忆拼出整句；不区分大小写和标点。',
+    title: 'WFD 拼写错题',
+    description: '练 WFD 题库时第一遍打错的句子。按 FSRS 建议复习，不强制。',
     unit: '句',
   },
 ]

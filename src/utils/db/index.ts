@@ -29,7 +29,7 @@ export function useSaveChapterRecord() {
 
       const chapterRecord = new ChapterRecord(
         dictID,
-        session.active ? -1 : currentChapter,
+        session.active ? (session.mode === 'bank' ? session.chapter ?? -1 : -1) : currentChapter,
         time,
         correctCount,
         wrongCount,
@@ -39,7 +39,7 @@ export function useSaveChapterRecord() {
       )
       postJSON('/records/chapters', chapterRecord)
     },
-    [currentChapter, dictID, session.active],
+    [currentChapter, dictID, session.active, session.mode, session.chapter],
   )
 
   return saveChapterRecord
@@ -68,6 +68,7 @@ export function useSaveWordRecord() {
       usphone,
       ukphone,
       cardId,
+      itemId,
     }: {
       word: string
       wrongCount: number
@@ -78,6 +79,7 @@ export function useSaveWordRecord() {
       usphone?: string
       ukphone?: string
       cardId?: number
+      itemId?: number
     }) => {
       const timing = []
       for (let i = 1; i < letterTimeArray.length; i++) {
@@ -90,11 +92,12 @@ export function useSaveWordRecord() {
       // The server turns a first-try mistake into a review card, and grades review answers.
       await postJSON('/records/words', {
         ...wordRecord,
-        mode: session.active ? session.mode ?? 'review' : 'learn',
+        mode: session.active && session.mode !== 'bank' ? session.mode ?? 'review' : 'learn',
         trans,
         usphone,
         ukphone,
         cardId,
+        itemId,
       })
       // The chapter record is saved once the last word's record is in.
       dispatch?.({ type: TypingStateActionType.SET_IS_SAVING_RECORD, payload: false })

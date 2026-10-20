@@ -1,13 +1,15 @@
 /**
- * Import a JSON file of PTE mistakes for one user, using the same functions as
- * the /api/v1 import endpoints. Shape: { fib: [{sentence, trans?, note?}],
+ * Import a JSON file for one user, using the same functions as the /api/v1
+ * import endpoints: FIB / WFD go into the question bank (chapters by import
+ * date), words straight into the error words review. Shape: { fib: [{sentence, trans?, note?}],
  * wfd: [{sentence, trans?, note?}], words: [{word, trans?, usphone?, ukphone?, source?, note?}] }
  *
  *   tsx --env-file=<env> server/scripts/import-json.ts <username> <file.json>
  */
+import { importBankItems } from '../bank.js'
 import { client, db } from '../db/index.js'
 import { user } from '../db/schema.js'
-import { importSentences, importWords, parseFib } from '../srs.js'
+import { importWords, parseFib } from '../srs.js'
 import type { CardSource } from '../srs.js'
 import { eq } from 'drizzle-orm'
 import { readFileSync } from 'node:fs'
@@ -38,12 +40,12 @@ try {
   const badFib = (data.fib ?? []).filter((item) => !parseFib(item.sentence))
   if (badFib.length) throw new Error(`FIB sentences need exactly one [blank]: ${badFib.map((b) => b.sentence).join(' | ')}`)
 
-  const fib = await importSentences(
+  const fib = await importBankItems(
     row.id,
     'fib',
     (data.fib ?? []).map((s) => ({ ...s, trans: asList(s.trans) })),
   )
-  const wfd = await importSentences(
+  const wfd = await importBankItems(
     row.id,
     'wfd',
     (data.wfd ?? []).map((s) => ({ ...s, trans: asList(s.trans) })),

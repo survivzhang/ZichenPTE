@@ -23,7 +23,7 @@ export const DictChapterButton = () => {
   if (srsReview.active) {
     return (
       <span className="px-3 py-1 text-lg text-indigo-500 dark:text-indigo-300">
-        {sessionLabel(srsReview.type, srsReview.mode)} · {srsReview.words.length}{' '}
+        {sessionLabel(srsReview.type, srsReview.mode, srsReview.title)} · {srsReview.words.length}{' '}
         {srsReview.type === 'word' || !srsReview.type ? '词' : '句'}
       </span>
     )

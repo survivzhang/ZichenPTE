@@ -229,24 +229,49 @@ export function importWords(userId: string, words: ImportWord[], options: { only
 
 export type ImportSentence = { sentence: string; trans?: string[]; note?: string | null }
 
-/** FIB sentences must contain exactly one [blank]; callers validate with parseFib first. */
-export function importSentences(userId: string, type: 'fib' | 'wfd', items: ImportSentence[]) {
-  return importCards(
-    userId,
-    items.map((item) => {
-      const sentence = item.sentence.trim().replace(/\s+/g, ' ')
-      return {
-        type,
-        // fib keeps the brackets in the key, so the same sentence with a different blank is a different card
-        key: type === 'fib' ? sentence.toLowerCase() : normalizeSentence(sentence),
-        displayWord: type === 'fib' ? parseFib(sentence)?.answer ?? sentence : sentence,
-        sentence,
+/** Tidy a FIB / WFD sentence and compute its lookup key (shared by the question bank and its review cards). */
+export function sentenceCard(type: 'fib' | 'wfd', rawSentence: string) {
+  const sentence = rawSentence.trim().replace(/\s+/g, ' ')
+  return {
+    sentence,
+    // fib keeps the brackets in the key, so the same sentence with a different blank is a different card
+    key: type === 'fib' ? sentence.toLowerCase() : normalizeSentence(sentence),
+    displayWord: type === 'fib' ? parseFib(sentence)?.answer ?? sentence : sentence,
+  }
+}
+
+/**
+ * A question-bank item answered in a chapter. A first-try mistake creates its
+ * FIB / WFD review card (or lapses an existing one); a correct answer changes nothing.
+ */
+export async function recordBankAnswer(
+  userId: string,
+  item: { type: 'fib' | 'wfd'; sentence: string; trans: string[]; note: string | null },
+  correct: boolean,
+) {
+  if (correct) return
+  const card = sentenceCard(item.type, item.sentence)
+  let row = await findCard(userId, item.type, card.key)
+  if (!row) {
+    ;[row] = await db
+      .insert(reviewCard)
+      .values({
+        userId,
+        type: item.type,
+        word: card.key,
+        displayWord: card.displayWord,
+        sentence: card.sentence,
         trans: item.trans,
-        source: 'other' as const,
+        source: 'other',
         note: item.note,
-      }
-    }),
-  )
+        ...fromFsrsCard(createEmptyCard(new Date())),
+      })
+      .onConflictDoNothing({ target: [reviewCard.userId, reviewCard.type, reviewCard.word] })
+      .returning()
+    row ??= await findCard(userId, item.type, card.key)
+    if (!row) return
+  }
+  await grade(userId, row, false, 'learn')
 }
 
 const cardFields = {

@@ -33,6 +33,8 @@ export type Word = {
   speakText?: string
   // review card this item came from, so the answer grades that card
   cardId?: number
+  // question-bank item this came from; a first-try mistake makes it a review card
+  itemId?: number
 }
 
 export type WordWithIndex = Word & {

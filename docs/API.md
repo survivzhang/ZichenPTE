@@ -44,7 +44,7 @@ curl -s -X POST "$BASE/review-words" \
 
 What happens to each word:
 
-- **New word:** a review card is created, due **now**, so it is part of today's (mandatory) review.
+- **New word:** a review card is created, due **now**, so it is part of today's (mandatory) review. (This is the only import that goes straight into the error set.)
 - **Word already in the queue:** it is moved up to be due now; its schedule is otherwise kept, and a note replaces the old one.
 - Duplicates within one request are ignored.
 
@@ -61,11 +61,21 @@ curl -s "$BASE/review-words?username=zichen" -H "Authorization: Bearer $QLK"
 Returns every card with `word`, `trans`, `source`, `note`, `due` and
 `history` (each answer: `kind` = `learn` | `review` | `import`, `correct`, `at`).
 
-## Add FIB collocations
+## FIB / WFD question bank
 
-`POST /fib` — Reading/Listening Fill-in-the-Blank collocations. Each sentence
-has exactly **one** blank in `[square brackets]`; the blank may be a phrase.
-Only the bracketed part is typed; the rest of the sentence is shown.
+FIB collocations and WFD sentences go into the user's **question bank**, not
+straight into the error set. On the PTE page the bank appears as two word-book
+cards (FIB 固定搭配, WFD 拼写), split into chapters **by import date**: FIB 10
+items per chapter, WFD 5. Practicing a chapter works like a word book: an item
+typed wrong on the first try becomes a FIB / WFD error card with its own FSRS
+schedule (suggested, never mandatory). Only `POST /review-words` (single words)
+adds straight to the mandatory review.
+
+### Add FIB collocations
+
+`POST /fib` — each sentence has exactly **one** blank in `[square brackets]`;
+the blank may be a phrase. Only the bracketed part is typed; the rest of the
+sentence is shown. FIB stays silent with no hints until the first mistake.
 
 ```bash
 curl -s -X POST "$BASE/fib" \
@@ -77,15 +87,14 @@ curl -s -X POST "$BASE/fib" \
       {"sentence": "This is, [in terms of] cost, the best option."}
     ]
   }'
-# {"created":2,"updated":0}
+# {"created":2,"skipped":0}
 ```
 
 A sentence with no blank or more than one is rejected with `400`.
 
-## Add WFD sentences
+### Add WFD sentences
 
-`POST /wfd` — Write From Dictation sentences. The whole sentence is read out
-(Azure neural voice when configured, otherwise the browser's British voice) and
+`POST /wfd` — the whole sentence is read out (Azure neural voice, cached) and
 typed in full; case and punctuation are ignored.
 
 ```bash
@@ -94,12 +103,12 @@ curl -s -X POST "$BASE/wfd" \
   -d '{"username": "zichen", "items": [{"sentence": "The library will be closed for renovation next week."}]}'
 ```
 
-Both take up to 1000 `items` of `{ sentence, trans?, note? }`. FIB and WFD
-items have their own FSRS schedule shown as suggestions on the PTE page; they
-are **not** part of the mandatory daily review. Importing a sentence that is
-already there moves it up to "due now".
+Both take up to 1000 `items` of `{ sentence, trans?, note? }` and an optional
+`date` (`YYYY-MM-DD`, default today in Australia/Perth) that decides which
+chapter group the items join. Sentences already in the bank are skipped
+(`skipped`); for WFD, case and punctuation don't make a sentence different.
 
-`GET /review-words?username=…&type=fib` (or `wfd`, `word`) lists one kind.
+`GET /review-words?username=…&type=fib` (or `wfd`, `word`) lists error cards of one kind.
 
 ## Planned
 

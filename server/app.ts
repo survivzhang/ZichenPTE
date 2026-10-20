@@ -1,7 +1,9 @@
 import { auth } from './auth.js'
+import { bankChapters, findBankItem, importBankItems } from './bank.js'
+import type { BankType } from './bank.js'
 import { db } from './db/index.js'
 import { apiKey, chapterRecord, user, userPreference, wordRecord } from './db/schema.js'
-import { CARD_TYPES, dueCards, importSentences, importWords, listCards, parseFib, recordAnswer } from './srs.js'
+import { CARD_TYPES, dueCards, importWords, listCards, parseFib, recordAnswer, recordBankAnswer } from './srs.js'
 import { isTtsConfigured, synthesize } from './tts.js'
 import { and, asc, between, count, countDistinct, desc, eq, gte, inArray, isNull, sql } from 'drizzle-orm'
 import { Hono } from 'hono'
@@ -35,6 +37,8 @@ const wordRecordInput = z.object({
   ukphone: z.string().nullish(),
   // set when the item came from a review card (daily review, FIB, WFD)
   cardId: z.number().int().positive().optional(),
+  // set when the item came from the user's FIB / WFD question bank
+  itemId: z.number().int().positive().optional(),
 })
 
 const chapterRecordInput = z.object({
@@ -123,6 +127,14 @@ app.use('/records/*', requireUser)
 app.use('/preferences', requireUser)
 app.use('/progress', requireUser)
 app.use('/stats/*', requireUser)
+app.use('/bank/*', requireUser)
+
+// The user's FIB / WFD question bank, split into chapters by import date.
+app.get('/bank/:type', async (c) => {
+  const type = z.enum(['fib', 'wfd']).safeParse(c.req.param('type'))
+  if (!type.success) return c.json({ error: 'type must be fib or wfd' }, 400)
+  return c.json({ chapters: await bankChapters(c.get('userId'), type.data) })
+})
 
 // Word records in a time range (unix seconds), for the statistics page.
 app.get('/stats/words', async (c) => {
@@ -291,6 +303,11 @@ app.get('/v1/review-words', async (c) => {
 
 const sentenceImportInput = z.object({
   username: z.string().min(1),
+  // chapters are grouped by this date; defaults to today (APP_TIMEZONE, Australia/Perth)
+  date: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional(),
   items: z
     .array(
       z.object({
@@ -319,7 +336,7 @@ app.post('/v1/fib', async (c) => {
   }
   const userId = await findUserIdByUsername(parsed.data.username)
   if (!userId) return c.json({ error: 'Unknown username' }, 404)
-  return c.json(await importSentences(userId, 'fib', parsed.data.items))
+  return c.json(await importBankItems(userId, 'fib', parsed.data.items, parsed.data.date))
 })
 
 // WFD sentences, dictated as a whole.
@@ -330,7 +347,7 @@ app.post('/v1/wfd', async (c) => {
   }
   const userId = await findUserIdByUsername(parsed.data.username)
   if (!userId) return c.json({ error: 'Unknown username' }, 404)
-  return c.json(await importSentences(userId, 'wfd', parsed.data.items))
+  return c.json(await importBankItems(userId, 'wfd', parsed.data.items, parsed.data.date))
 })
 
 app.post('/v1/review-words', async (c) => {
@@ -383,17 +400,23 @@ app.post('/records/words', async (c) => {
   if (!parsed.success) {
     return c.json({ error: 'Invalid word record', issues: parsed.error.issues }, 400)
   }
-  const { timeStamp, mode, trans, usphone, ukphone, cardId, ...record } = parsed.data
+  const { timeStamp, mode, trans, usphone, ukphone, cardId, itemId, ...record } = parsed.data
   const [row] = await db
     .insert(wordRecord)
     .values({ ...record, typedAt: timeStamp, userId: c.get('userId') })
     .returning({ id: wordRecord.id })
   // Only the first try counts: any mistake on the way to typing the word correctly marks it wrong.
-  await recordAnswer(
-    c.get('userId'),
-    { word: record.word, trans, usphone, ukphone },
-    { correct: record.wrongCount === 0, kind: mode, originDict: record.dict, cardId },
-  )
+  const correct = record.wrongCount === 0
+  if (itemId !== undefined) {
+    const item = await findBankItem(c.get('userId'), itemId)
+    if (item) await recordBankAnswer(c.get('userId'), { ...item, type: item.type as BankType }, correct)
+  } else {
+    await recordAnswer(
+      c.get('userId'),
+      { word: record.word, trans, usphone, ukphone },
+      { correct, kind: mode, originDict: record.dict, cardId },
+    )
+  }
   return c.json(row, 201)
 })
 

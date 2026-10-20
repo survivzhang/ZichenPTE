@@ -30,7 +30,8 @@ const App: React.FC = () => {
   const srsReview = useAtomValue(srsReviewAtom)
   // Learning new words is locked until today's reviews are done.
   const { count: dueCount } = useDueReviews()
-  const isGated = !srsReview.active && (dueCount ?? 0) > 0
+  // Bank chapters are new material too, so they wait for the daily review like word books do.
+  const isGated = (!srsReview.active || srsReview.mode === 'bank') && (dueCount ?? 0) > 0
 
   const [currentDictId, setCurrentDictId] = useAtom(currentDictIdAtom)
   const setCurrentChapter = useSetAtom(currentChapterAtom)

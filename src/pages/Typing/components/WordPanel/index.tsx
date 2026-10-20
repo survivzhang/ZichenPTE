@@ -31,7 +31,8 @@ export default function WordPanel() {
     return newIndex > state.chapterData.words.length - 1 ? state.chapterData.words.length - 1 : newIndex
   }, [state.chapterData.index, state.chapterData.words.length])
 
-  usePrefetchPronunciationSound(nextWord?.name)
+  // Sentences (FIB / WFD) use their own audio, not the word pronunciation service.
+  usePrefetchPronunciationSound(nextWord && !nextWord.kind ? nextWord.name : undefined)
 
   const reloadCurrentWordComponent = useCallback(() => {
     setWordComponentKey((old) => old + 1)

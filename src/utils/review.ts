@@ -74,9 +74,39 @@ export function cardToWord(card: ReviewCardData): Word {
   return { ...base, name: card.word }
 }
 
-/** Name of a review session, for the practice page. */
-export function sessionLabel(type?: SessionType, mode?: 'review' | 'learn') {
-  if (type === 'fib') return 'FIB 固定搭配'
-  if (type === 'wfd') return 'WFD 拼写'
-  return mode === 'learn' ? '错词练习' : '今日复习'
+/** Name of a session, for the practice page. */
+export function sessionLabel(type?: SessionType, mode?: 'review' | 'learn' | 'bank', title?: string) {
+  const name = type === 'fib' ? 'FIB 固定搭配' : type === 'wfd' ? 'WFD 拼写' : mode === 'learn' ? '错词练习' : '今日复习'
+  if (mode === 'bank') return title ? `${name} · ${title}` : name
+  if (type === 'fib' || type === 'wfd') return `${name}错题`
+  return name
+}
+
+export type BankItem = { id: number; sentence: string; trans: string[]; note: string | null; importDate: string }
+export type BankChapter = { index: number; date: string; part: number; items: BankItem[]; completed: boolean }
+
+/** The user's FIB / WFD question bank, split into chapters by import date. */
+export function useBank(type: 'fib' | 'wfd') {
+  const { data } = useSWR(`bank-${type}`, () => getJSON<{ chapters: BankChapter[] }>(`/bank/${type}`))
+  return data?.chapters
+}
+
+/** "2026-10-20" part 2 -> "10-20 第2组" */
+export const bankChapterTitle = (chapter: BankChapter) => `${chapter.date.slice(5)} 第${chapter.part}组`
+
+/** Turn a question-bank item into an item for the typing page. */
+export function bankItemToWord(type: 'fib' | 'wfd', item: BankItem): Word {
+  const word = cardToWord({
+    id: 0,
+    type,
+    word: item.sentence,
+    sentence: item.sentence,
+    trans: item.trans,
+    usphone: null,
+    ukphone: null,
+    source: 'other',
+    note: item.note,
+    due: '',
+  })
+  return { ...word, cardId: undefined, itemId: item.id }
 }

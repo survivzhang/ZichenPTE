@@ -272,6 +272,7 @@ export default function WordComponent({ word, onFinish }: { word: Word; onFinish
         usphone: word.usphone,
         ukphone: word.ukphone,
         cardId: word.cardId,
+        itemId: word.itemId,
       })
 
       onFinish()
