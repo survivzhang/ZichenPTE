@@ -15,6 +15,13 @@
       "when": 1792481690462,
       "tag": "0001_omniscient_thunderbolts",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1792482289305,
+      "tag": "0002_little_tyrannus",
+      "breakpoints": true
     }
   ]
 }

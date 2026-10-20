@@ -1,4 +1,5 @@
 import Loading from './components/Loading'
+import PreferencesSync from './components/PreferencesSync'
 import './index.css'
 import { ErrorBook } from './pages/ErrorBook'
 import { FriendLinks } from './pages/FriendLinks'
@@ -60,22 +61,24 @@ function Root() {
           ) : !session ? (
             <LoginPage />
           ) : (
-            <Routes>
-              {isMobile ? (
-                <Route path="/*" element={<Navigate to="/mobile" />} />
-              ) : (
-                <>
-                  <Route index element={<TypingPage />} />
-                  <Route path="/gallery" element={<GalleryPage />} />
-                  <Route path="/analysis" element={<AnalysisPage />} />
-                  <Route path="/error-book" element={<ErrorBook />} />
-                  <Route path="/friend-links" element={<FriendLinks />} />
-                  {session.user.role === 'admin' && <Route path="/admin" element={<AdminPage />} />}
-                  <Route path="/*" element={<Navigate to="/" />} />
-                </>
-              )}
-              <Route path="/mobile" element={<MobilePage />} />
-            </Routes>
+            <PreferencesSync>
+              <Routes>
+                {isMobile ? (
+                  <Route path="/*" element={<Navigate to="/mobile" />} />
+                ) : (
+                  <>
+                    <Route index element={<TypingPage />} />
+                    <Route path="/gallery" element={<GalleryPage />} />
+                    <Route path="/analysis" element={<AnalysisPage />} />
+                    <Route path="/error-book" element={<ErrorBook />} />
+                    <Route path="/friend-links" element={<FriendLinks />} />
+                    {session.user.role === 'admin' && <Route path="/admin" element={<AdminPage />} />}
+                    <Route path="/*" element={<Navigate to="/" />} />
+                  </>
+                )}
+                <Route path="/mobile" element={<MobilePage />} />
+              </Routes>
+            </PreferencesSync>
           )}
         </Suspense>
       </BrowserRouter>

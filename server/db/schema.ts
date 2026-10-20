@@ -151,3 +151,13 @@ export const sessionRelations = relations(session, ({ one }) => ({
 export const accountRelations = relations(account, ({ one }) => ({
   user: one(user, { fields: [account.userId], references: [user.id] }),
 }))
+
+// Per-user app state that should follow the account across devices.
+export const userPreference = pgTable('user_preference', {
+  userId: text('user_id')
+    .primaryKey()
+    .references(() => user.id, { onDelete: 'cascade' }),
+  currentDict: text('current_dict'),
+  currentChapter: integer('current_chapter'),
+  updatedAt: updatedAt(),
+})

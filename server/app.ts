@@ -1,7 +1,9 @@
 import { auth } from './auth.js'
 import { db } from './db/index.js'
-import { chapterRecord, wordRecord } from './db/schema.js'
+import { chapterRecord, userPreference, wordRecord } from './db/schema.js'
+import { eq } from 'drizzle-orm'
 import { Hono } from 'hono'
+import { createMiddleware } from 'hono/factory'
 import { z } from 'zod'
 
 type Env = { Variables: { userId: string } }
@@ -34,18 +36,46 @@ const chapterRecordInput = z.object({
   timeStamp: unixSeconds,
 })
 
-const app = new Hono<Env>().basePath('/api')
+const preferencesInput = z.object({
+  currentDict: z.string().min(1).max(200),
+  currentChapter: z.number().int().nonnegative(),
+})
 
-app.on(['GET', 'POST'], '/auth/*', (c) => auth.handler(c.req.raw))
-
-// Everything below requires a signed-in user.
-app.use('/records/*', async (c, next) => {
+const requireUser = createMiddleware<Env>(async (c, next) => {
   const session = await auth.api.getSession({ headers: c.req.raw.headers })
   if (!session) {
     return c.json({ error: 'Unauthorized' }, 401)
   }
   c.set('userId', session.user.id)
   await next()
+})
+
+const app = new Hono<Env>().basePath('/api')
+
+app.on(['GET', 'POST'], '/auth/*', (c) => auth.handler(c.req.raw))
+
+// Everything below requires a signed-in user.
+app.use('/records/*', requireUser)
+app.use('/preferences', requireUser)
+
+app.get('/preferences', async (c) => {
+  const [row] = await db
+    .select({ currentDict: userPreference.currentDict, currentChapter: userPreference.currentChapter })
+    .from(userPreference)
+    .where(eq(userPreference.userId, c.get('userId')))
+  return c.json(row ?? { currentDict: null, currentChapter: null })
+})
+
+app.put('/preferences', async (c) => {
+  const parsed = preferencesInput.safeParse(await c.req.json().catch(() => null))
+  if (!parsed.success) {
+    return c.json({ error: 'Invalid preferences', issues: parsed.error.issues }, 400)
+  }
+  await db
+    .insert(userPreference)
+    .values({ userId: c.get('userId'), ...parsed.data })
+    .onConflictDoUpdate({ target: userPreference.userId, set: parsed.data })
+  return c.json(parsed.data)
 })
 
 app.post('/records/words', async (c) => {
