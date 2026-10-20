@@ -10,7 +10,7 @@
     "forceConsistentCasingInFileNames": true,
     "noFallthroughCasesInSwitch": true,
     "module": "esnext",
-    "moduleResolution": "node",
+    "moduleResolution": "bundler",
     "resolveJsonModule": true,
     "isolatedModules": true,
     "noEmit": true,
@@ -18,7 +18,10 @@
     "types": ["node", "unplugin-icons/types/react"],
     "baseUrl": ".",
     "paths": {
-      "@/*": ["src/*"]
+      "@/*": ["src/*"],
+      // use-sound's package.json "exports" hides its type declarations from bundler resolution
+      "use-sound": ["node_modules/use-sound/dist/index.d.ts"],
+      "use-sound/dist/types": ["node_modules/use-sound/dist/types.d.ts"]
       // "@/assets/*": ["assets/*"],
       // "@/components/*": ["components/*"],
       // "@/hooks/*": ["hooks/*"],

@@ -11,6 +11,22 @@
   <a href="./docs/README_JP.md">日本語</a>
 </p>
 
+## 个人版说明（本 fork）
+
+这是一个只保留英语词典、需要登录才能使用的个人版。练习记录会保存到 Postgres 数据库。
+
+**本地运行**（需要 Docker）：
+
+```bash
+cp .env.example .env          # 然后填入 BETTER_AUTH_SECRET（openssl rand -base64 32）
+yarn install
+yarn dev                      # 同时启动数据库（端口 55432）、API（3001）和前端（5173）
+yarn user:create              # 首次使用时创建登录账号（应用内不开放注册）
+```
+
+**部署到 Vercel**：在 Vercel 项目里设置 `DATABASE_URL`（如 Neon）、`BETTER_AUTH_SECRET`、`BETTER_AUTH_URL`（站点地址）。构建时会自动执行数据库迁移。账号用本地的 `yarn user:create` 指向云端数据库创建。
+
+
 <p align="center">
   为键盘工作者设计的单词记忆与英语肌肉记忆锻炼软件
 </p>

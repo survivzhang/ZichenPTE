@@ -1,7 +1,10 @@
 import logo from '@/assets/logo.svg'
+import Tooltip from '@/components/Tooltip'
+import { authClient } from '@/utils/auth-client'
 import type { PropsWithChildren } from 'react'
 import type React from 'react'
 import { NavLink } from 'react-router-dom'
+import IconLogout from '~icons/tabler/logout'
 
 const Header: React.FC<PropsWithChildren> = ({ children }) => {
   return (
@@ -16,6 +19,16 @@ const Header: React.FC<PropsWithChildren> = ({ children }) => {
         </NavLink>
         <nav className="my-card on element flex w-auto content-center items-center justify-end space-x-3 rounded-xl bg-white p-4 transition-colors duration-300 dark:bg-gray-800">
           {children}
+          <Tooltip content="退出登录">
+            <button
+              type="button"
+              aria-label="退出登录"
+              className="flex items-center justify-center rounded p-[2px] text-lg text-indigo-500 outline-none transition-colors duration-300 ease-in-out hover:bg-indigo-400 hover:text-white"
+              onClick={() => authClient.signOut()}
+            >
+              <IconLogout className="icon" />
+            </button>
+          </Tooltip>
         </nav>
       </div>
     </header>

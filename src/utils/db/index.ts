@@ -3,6 +3,7 @@ import { ChapterRecord, ReviewRecord, WordRecord } from './record'
 import { TypingContext, TypingStateActionType } from '@/pages/Typing/store'
 import type { TypingState } from '@/pages/Typing/store/type'
 import { currentChapterAtom, currentDictIdAtom, isReviewModeAtom } from '@/store'
+import { postJSON } from '@/utils/api'
 import type { Table } from 'dexie'
 import Dexie from 'dexie'
 import { useAtomValue } from 'jotai'
@@ -65,6 +66,9 @@ export function useSaveChapterRecord() {
         wordRecordIds ?? [],
       )
       db.chapterRecords.add(chapterRecord)
+      // wordRecordIds are local IndexedDB ids, meaningless to the server
+      const { wordRecordIds: _localIds, ...chapterRecordForServer } = chapterRecord
+      postJSON('/records/chapters', chapterRecordForServer)
     },
     [currentChapter, dictID, isRevision],
   )
@@ -103,6 +107,8 @@ export function useSaveWordRecord() {
       }
 
       const wordRecord = new WordRecord(word, dictID, isRevision ? -1 : currentChapter, timing, wrongCount, letterMistake)
+
+      postJSON('/records/words', wordRecord)
 
       let dbID = -1
       try {

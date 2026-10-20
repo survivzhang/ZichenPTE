@@ -4,6 +4,7 @@ import { ErrorBook } from './pages/ErrorBook'
 import { FriendLinks } from './pages/FriendLinks'
 import MobilePage from './pages/Mobile'
 import TypingPage from './pages/Typing'
+import { authClient } from './utils/auth-client'
 import { isOpenDarkModeAtom } from '@/store'
 import { Analytics } from '@vercel/analytics/react'
 import 'animate.css'
@@ -17,6 +18,7 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 
 const AnalysisPage = lazy(() => import('./pages/Analysis'))
 const GalleryPage = lazy(() => import('./pages/Gallery-N'))
+const LoginPage = lazy(() => import('./pages/Login'))
 
 if (process.env.NODE_ENV === 'production') {
   // for prod
@@ -32,6 +34,7 @@ function Root() {
     darkMode ? document.documentElement.classList.add('dark') : document.documentElement.classList.remove('dark')
   }, [darkMode])
 
+  const { data: session, isPending } = authClient.useSession()
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 600)
 
   useEffect(() => {
@@ -51,21 +54,27 @@ function Root() {
     <React.StrictMode>
       <BrowserRouter basename={REACT_APP_DEPLOY_ENV === 'pages' ? '/qwerty-learner' : ''}>
         <Suspense fallback={<Loading />}>
-          <Routes>
-            {isMobile ? (
-              <Route path="/*" element={<Navigate to="/mobile" />} />
-            ) : (
-              <>
-                <Route index element={<TypingPage />} />
-                <Route path="/gallery" element={<GalleryPage />} />
-                <Route path="/analysis" element={<AnalysisPage />} />
-                <Route path="/error-book" element={<ErrorBook />} />
-                <Route path="/friend-links" element={<FriendLinks />} />
-                <Route path="/*" element={<Navigate to="/" />} />
-              </>
-            )}
-            <Route path="/mobile" element={<MobilePage />} />
-          </Routes>
+          {isPending ? (
+            <Loading />
+          ) : !session ? (
+            <LoginPage />
+          ) : (
+            <Routes>
+              {isMobile ? (
+                <Route path="/*" element={<Navigate to="/mobile" />} />
+              ) : (
+                <>
+                  <Route index element={<TypingPage />} />
+                  <Route path="/gallery" element={<GalleryPage />} />
+                  <Route path="/analysis" element={<AnalysisPage />} />
+                  <Route path="/error-book" element={<ErrorBook />} />
+                  <Route path="/friend-links" element={<FriendLinks />} />
+                  <Route path="/*" element={<Navigate to="/" />} />
+                </>
+              )}
+              <Route path="/mobile" element={<MobilePage />} />
+            </Routes>
+          )}
         </Suspense>
       </BrowserRouter>
       <Analytics />

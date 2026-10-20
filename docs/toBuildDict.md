@@ -107,7 +107,7 @@
 `description` 是词典描述  
 `category` 是词典分类（你可以事先阅读所有已存在的词典分类，来为新的词典选择合适的分类）  
 `url` 是词典的目标文件位置  
-`length` 是词典的单词数量（可以通过运行脚本 `scripts/update-dict-size.js` 来自动计算）  
+`length` 是词典的单词数量（可以通过运行脚本 `scripts/update-dict-size.cjs` 来自动计算）  
 `language` 表示词典的语言
 
 ### 1.4 测试 🧪
