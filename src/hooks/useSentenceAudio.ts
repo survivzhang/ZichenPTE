@@ -40,8 +40,11 @@ function speakWithBrowser(text: string, onEnd: () => void) {
 export default function useSentenceAudio(text: string | undefined) {
   const [isPlaying, setIsPlaying] = useState(false)
   const audioRef = useRef<HTMLAudioElement | null>(null)
+  // Bumped by every stop, so audio that finishes loading after a stop (or a newer play) is dropped.
+  const requestRef = useRef(0)
 
   const stop = useCallback(() => {
+    requestRef.current += 1
     audioRef.current?.pause()
     audioRef.current = null
     if ('speechSynthesis' in window) window.speechSynthesis.cancel()
@@ -51,8 +54,11 @@ export default function useSentenceAudio(text: string | undefined) {
   const play = useCallback(async () => {
     if (!text) return
     stop()
+    const request = requestRef.current
     setIsPlaying(true)
     const url = await fetchServerAudio(text)
+    // The sentence changed or playback was stopped while the audio was loading.
+    if (request !== requestRef.current) return
     if (url) {
       const audio = new Audio(url)
       audioRef.current = audio

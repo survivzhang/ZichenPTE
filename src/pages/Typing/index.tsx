@@ -11,6 +11,7 @@ import WordPanel from './components/WordPanel'
 import { useConfetti } from './hooks/useConfetti'
 import { useWordList } from './hooks/useWordList'
 import { TypingContext, TypingStateActionType, initialState, typingReducer } from './store'
+import { clearProgress, loadProgress, saveProgress } from './store/progress'
 import Header from '@/components/Header'
 import Tooltip from '@/components/Tooltip'
 import { idDictionaryMap } from '@/resources/dictionary'
@@ -18,7 +19,7 @@ import { DEFAULT_DICT_ID, currentChapterAtom, currentDictIdAtom, randomConfigAto
 import { IsDesktop, isLegal } from '@/utils'
 import { useSaveChapterRecord } from '@/utils/db'
 import { useDueReviews } from '@/utils/review'
-import { useAtom, useAtomValue, useSetAtom } from 'jotai'
+import { useAtom, useAtomValue } from 'jotai'
 import type React from 'react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useImmerReducer } from 'use-immer'
@@ -34,9 +35,13 @@ const App: React.FC = () => {
   const isGated = (!srsReview.active || srsReview.mode === 'bank') && (dueCount ?? 0) > 0
 
   const [currentDictId, setCurrentDictId] = useAtom(currentDictIdAtom)
-  const setCurrentChapter = useSetAtom(currentChapterAtom)
+  const [currentChapter, setCurrentChapter] = useAtom(currentChapterAtom)
   const randomConfig = useAtomValue(randomConfigAtom)
   const saveChapterRecord = useSaveChapterRecord()
+  // Which chapter or session this is, for resuming it after leaving the page.
+  const progressKey = srsReview.active
+    ? `${srsReview.type}:${srsReview.mode}:${srsReview.chapter ?? ''}`
+    : `${currentDictId}:${currentChapter}`
 
   useEffect(() => {
     // 检测用户设备
@@ -108,11 +113,21 @@ const App: React.FC = () => {
     if (words !== undefined) {
       dispatch({
         type: TypingStateActionType.SETUP_CHAPTER,
-        payload: { words, shouldShuffle: randomConfig.isOpen },
+        payload: { words, shouldShuffle: randomConfig.isOpen, progress: loadProgress(progressKey) },
       })
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [words])
+
+  // Save the unfinished chapter after every item; a finished one starts from the beginning next time.
+  useEffect(() => {
+    if (state.isFinished) {
+      clearProgress(progressKey)
+    } else if (state.chapterData.words.length > 0 && (state.chapterData.index > 0 || state.chapterData.wordCount > 0)) {
+      saveProgress(progressKey, state)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.chapterData.index, state.chapterData.wordCount, state.isFinished])
 
   useEffect(() => {
     // 当用户完成章节后且完成 word Record 数据保存，记录 chapter Record 数据,

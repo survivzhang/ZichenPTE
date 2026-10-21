@@ -1,4 +1,4 @@
-import type { TypingState, UserInputLog } from './type'
+import type { PracticeProgress, TypingState, UserInputLog } from './type'
 import type { WordWithIndex } from '@/typings'
 import type { LetterMistakes } from '@/utils/db/record'
 import { mergeLetterMistake } from '@/utils/db/utils'
@@ -59,7 +59,10 @@ export enum TypingStateActionType {
 }
 
 export type TypingStateAction =
-  | { type: TypingStateActionType.SETUP_CHAPTER; payload: { words: WordWithIndex[]; shouldShuffle: boolean; initialIndex?: number } }
+  | {
+      type: TypingStateActionType.SETUP_CHAPTER
+      payload: { words: WordWithIndex[]; shouldShuffle: boolean; initialIndex?: number; progress?: PracticeProgress }
+    }
   | { type: TypingStateActionType.SET_IS_SKIP; payload: boolean }
   | { type: TypingStateActionType.SET_IS_TYPING; payload: boolean }
   | { type: TypingStateActionType.TOGGLE_IS_TYPING }
@@ -80,10 +83,39 @@ export type TypingStateAction =
 
 type Dispatch = (action: TypingStateAction) => void
 
+/** The chapter's words in the saved order, or undefined when the saved progress is for a different set of words. */
+function restoreProgress(words: WordWithIndex[], progress: PracticeProgress) {
+  const { order, index, userInputLogs } = progress
+  if (order.length !== words.length || userInputLogs.length !== words.length || index >= words.length) return undefined
+  if (new Set(order).size !== order.length) return undefined
+  const byName = new Map(words.map((word) => [word.name, word]))
+  const ordered: WordWithIndex[] = []
+  for (const name of order) {
+    const word = byName.get(name)
+    if (!word) return undefined
+    ordered.push(word)
+  }
+  return ordered
+}
+
 export const typingReducer = (state: TypingState, action: TypingStateAction) => {
   switch (action.type) {
     case TypingStateActionType.SETUP_CHAPTER: {
       const newState = structuredClone(initialState)
+      const { progress } = action.payload
+      const restored = progress && restoreProgress(action.payload.words, progress)
+      if (progress && restored) {
+        newState.chapterData = {
+          words: restored,
+          index: progress.index,
+          wordCount: progress.wordCount,
+          correctCount: progress.correctCount,
+          wrongCount: progress.wrongCount,
+          userInputLogs: progress.userInputLogs,
+        }
+        newState.timerData.time = progress.time
+        return newState
+      }
       const words = action.payload.shouldShuffle ? shuffle(action.payload.words) : action.payload.words
       let initialIndex = action.payload.initialIndex ?? 0
       if (initialIndex >= words.length) {

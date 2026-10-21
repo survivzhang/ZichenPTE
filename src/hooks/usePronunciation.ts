@@ -2,12 +2,9 @@ import { pronunciationConfigAtom } from '@/store'
 import type { PronunciationType } from '@/typings'
 import { addHowlListener } from '@/utils'
 import { romajiToHiragana } from '@/utils/kana'
-import noop from '@/utils/noop'
-import type { Howl } from 'howler'
+import { Howl } from 'howler'
 import { useAtomValue } from 'jotai'
-import { useEffect, useMemo, useState } from 'react'
-import useSound from 'use-sound'
-import type { HookOptions } from 'use-sound/dist/types'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 const pronunciationApi = 'https://dict.youdao.com/dictvoice?audio='
 export function generateWordSoundSrc(word: string, pronunciation: Exclude<PronunciationType, false>): string {
@@ -38,36 +35,45 @@ export default function usePronunciationSound(word: string, isLoop?: boolean) {
   const pronunciationConfig = useAtomValue(pronunciationConfigAtom)
   const loop = useMemo(() => (typeof isLoop === 'boolean' ? isLoop : pronunciationConfig.isLoop), [isLoop, pronunciationConfig.isLoop])
   const [isPlaying, setIsPlaying] = useState(false)
+  const src = generateWordSoundSrc(word, pronunciationConfig.type)
 
-  const [play, { stop, sound }] = useSound(generateWordSoundSrc(word, pronunciationConfig.type), {
-    html5: true,
-    format: ['mp3'],
-    loop,
-    volume: pronunciationConfig.volume,
-    rate: pronunciationConfig.rate,
-  } as HookOptions)
-
-  useEffect(() => {
-    if (!sound) return
-    sound.loop(loop)
-    return noop
-  }, [loop, sound])
+  // A new sound is made as soon as the word changes. (use-sound kept the previous word's
+  // sound until the new one had loaded, so playing in between played the old word.)
+  const soundRef = useRef<Howl | null>(null)
+  const settingsRef = useRef({ loop, volume: pronunciationConfig.volume, rate: pronunciationConfig.rate })
+  settingsRef.current = { loop, volume: pronunciationConfig.volume, rate: pronunciationConfig.rate }
 
   useEffect(() => {
-    if (!sound) return
-    const unListens: Array<() => void> = []
-
-    unListens.push(addHowlListener(sound, 'play', () => setIsPlaying(true)))
-    unListens.push(addHowlListener(sound, 'end', () => setIsPlaying(false)))
-    unListens.push(addHowlListener(sound, 'pause', () => setIsPlaying(false)))
-    unListens.push(addHowlListener(sound, 'playerror', () => setIsPlaying(false)))
-
+    if (!src) return
+    const sound = new Howl({ src: [src], html5: true, format: ['mp3'], ...settingsRef.current })
+    soundRef.current = sound
+    const unListens = [
+      addHowlListener(sound, 'play', () => setIsPlaying(true)),
+      addHowlListener(sound, 'end', () => setIsPlaying(false)),
+      addHowlListener(sound, 'stop', () => setIsPlaying(false)),
+      addHowlListener(sound, 'pause', () => setIsPlaying(false)),
+      addHowlListener(sound, 'playerror', () => setIsPlaying(false)),
+    ]
     return () => {
       setIsPlaying(false)
       unListens.forEach((unListen) => unListen())
-      ;(sound as Howl).unload()
+      sound.unload()
+      if (soundRef.current === sound) soundRef.current = null
     }
-  }, [sound])
+  }, [src])
+
+  useEffect(() => {
+    soundRef.current?.loop(loop)
+    soundRef.current?.volume(pronunciationConfig.volume)
+    soundRef.current?.rate(pronunciationConfig.rate)
+  }, [loop, pronunciationConfig.volume, pronunciationConfig.rate])
+
+  const play = useCallback(() => {
+    soundRef.current?.play()
+  }, [])
+  const stop = useCallback(() => {
+    soundRef.current?.stop()
+  }, [])
 
   return { play, stop, isPlaying }
 }

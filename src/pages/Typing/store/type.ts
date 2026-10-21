@@ -25,6 +25,18 @@ export type UserInputLog = {
   LetterMistakes: LetterMistakes
 }
 
+/** An unfinished chapter, kept so that leaving the page and coming back continues where it stopped. */
+export type PracticeProgress = {
+  // word names in practice order (the chapter may have been shuffled)
+  order: string[]
+  index: number
+  wordCount: number
+  correctCount: number
+  wrongCount: number
+  userInputLogs: UserInputLog[]
+  time: number
+}
+
 export type TimerData = {
   time: number
   accuracy: number
