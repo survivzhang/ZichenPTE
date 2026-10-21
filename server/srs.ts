@@ -153,63 +153,48 @@ type NewCard = {
 /**
  * Add mistakes from outside the typing practice (the API, or an old local
  * error book). New items become cards due now. Items that already have a card
- * are brought forward to now, unless `onlyNew` is set (merging old data must
- * not reshuffle existing schedules).
+ * are skipped, so importing never reshuffles an existing schedule.
  */
-async function importCards(userId: string, items: NewCard[], { onlyNew = false } = {}) {
+async function importCards(userId: string, items: NewCard[]) {
   const now = new Date()
   let created = 0
-  let updated = 0
+  let skipped = 0
   const seen = new Set<string>()
   for (const item of items) {
     const seenKey = `${item.type}:${item.key}`
     if (!item.key || seen.has(seenKey)) continue
     seen.add(seenKey)
-    const existing = await findCard(userId, item.type, item.key)
-    if (existing && onlyNew) continue
-    if (existing) {
-      const due = existing.due < now ? existing.due : now
-      await db
-        .update(reviewCard)
-        .set({
-          due,
-          ...(item.trans?.length && !existing.trans.length ? { trans: item.trans } : {}),
-          ...(item.note ? { note: item.note } : {}),
-        })
-        .where(eq(reviewCard.id, existing.id))
-      await db.insert(reviewLog).values({ userId, cardId: existing.id, kind: 'import', correct: false, rating: 0, nextDue: due })
-      updated++
-    } else {
-      const [row] = await db
-        .insert(reviewCard)
-        .values({
-          userId,
-          type: item.type,
-          word: item.key,
-          displayWord: item.displayWord,
-          sentence: item.sentence ?? null,
-          trans: item.trans ?? [],
-          usphone: item.usphone ?? null,
-          ukphone: item.ukphone ?? null,
-          source: item.source,
-          note: item.note ?? null,
-          originDict: item.originDict ?? null,
-          ...fromFsrsCard(createEmptyCard(now)),
-        })
-        .onConflictDoNothing({ target: [reviewCard.userId, reviewCard.type, reviewCard.word] })
-        .returning({ id: reviewCard.id })
-      // Created concurrently by another request: nothing more to do.
-      if (!row) continue
-      await db.insert(reviewLog).values({ userId, cardId: row.id, kind: 'import', correct: false, rating: 0, nextDue: now })
-      created++
+    const [row] = await db
+      .insert(reviewCard)
+      .values({
+        userId,
+        type: item.type,
+        word: item.key,
+        displayWord: item.displayWord,
+        sentence: item.sentence ?? null,
+        trans: item.trans ?? [],
+        usphone: item.usphone ?? null,
+        ukphone: item.ukphone ?? null,
+        source: item.source,
+        note: item.note ?? null,
+        originDict: item.originDict ?? null,
+        ...fromFsrsCard(createEmptyCard(now)),
+      })
+      .onConflictDoNothing({ target: [reviewCard.userId, reviewCard.type, reviewCard.word] })
+      .returning({ id: reviewCard.id })
+    if (!row) {
+      skipped++
+      continue
     }
+    await db.insert(reviewLog).values({ userId, cardId: row.id, kind: 'import', correct: false, rating: 0, nextDue: now })
+    created++
   }
-  return { created, updated }
+  return { created, skipped }
 }
 
 export type ImportWord = WordInfo & { source?: CardSource; note?: string | null; originDict?: string | null }
 
-export function importWords(userId: string, words: ImportWord[], options: { onlyNew?: boolean } = {}) {
+export function importWords(userId: string, words: ImportWord[]) {
   return importCards(
     userId,
     words.map((w) => ({
@@ -223,7 +208,6 @@ export function importWords(userId: string, words: ImportWord[], options: { only
       note: w.note,
       originDict: w.originDict,
     })),
-    options,
   )
 }
 

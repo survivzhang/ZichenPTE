@@ -239,7 +239,6 @@ app.post('/review/import-local', async (c) => {
     await importWords(
       c.get('userId'),
       parsed.data.words.map((w) => ({ ...w, source: 'typing' as const })),
-      { onlyNew: true },
     ),
   )
 })

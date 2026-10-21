@@ -39,13 +39,13 @@ curl -s -X POST "$BASE/review-words" \
       {"word": "deteriorate", "trans": "v. 恶化", "source": "reading", "note": "FIB 高频"}
     ]
   }'
-# {"created":2,"updated":0}
+# {"created":2,"skipped":0}
 ```
 
 What happens to each word:
 
 - **New word:** a review card is created, due **now**, so it is part of today's (mandatory) review. (This is the only import that goes straight into the error set.)
-- **Word already in the queue:** it is moved up to be due now; its schedule is otherwise kept, and a note replaces the old one.
+- **Word already in the queue:** skipped (counted in `skipped`). Its schedule and note stay as they are, so importing the same word again never resets its review.
 - Duplicates within one request are ignored.
 
 From then on the word is scheduled by FSRS like any other mistake: typed right
