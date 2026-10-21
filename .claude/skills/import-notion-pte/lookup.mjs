@@ -17,7 +17,8 @@ for (const f of readdirSync('public/dicts').filter((f) => f.endsWith('.json'))) 
     const k = String(e?.name ?? '').toLowerCase()
     if (!want.has(k) || !e.trans?.length) continue
     const score = (e.usphone ? 1 : 0) + (e.ukphone ? 1 : 0)
-    if (!best[k] || score > best[k].score) best[k] = { score, word: e.name, trans: e.trans, usphone: e.usphone, ukphone: e.ukphone, dict: f }
+    if (!best[k] || score > best[k].score)
+      best[k] = { score, word: e.name, trans: e.trans, usphone: e.usphone, ukphone: e.ukphone, dict: f }
   }
 }
 for (const w of want) {
