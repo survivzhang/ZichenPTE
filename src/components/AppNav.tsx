@@ -23,20 +23,20 @@ export default function AppNav() {
   const { count: dueCount } = useDueReviews()
 
   return (
-    <header className="container z-20 mx-auto flex w-full items-center justify-between px-10 py-6">
-      <div className="flex items-center gap-8">
+    <header className="container z-20 mx-auto flex w-full items-center justify-between gap-2 px-3 py-4 sm:px-10 sm:py-6">
+      <div className="flex min-w-0 items-center gap-2 sm:gap-8">
         <NavLink to="/" className="flex items-center text-2xl font-bold text-indigo-500 no-underline hover:no-underline">
-          <img src={logo} className="mr-3 h-12 w-12" alt="Qwerty Learner Logo" />
+          <img src={logo} className="h-8 w-8 sm:mr-3 sm:h-12 sm:w-12" alt="Qwerty Learner Logo" />
           <span className="hidden whitespace-nowrap xl:inline">Qwerty Learner</span>
         </NavLink>
-        <nav className="flex items-center gap-1">
+        <nav className="flex items-center sm:gap-1">
           {links.map(({ to, label, end, showDue }) => (
             <NavLink
               key={to}
               to={to}
               end={end}
               className={({ isActive }) =>
-                `relative whitespace-nowrap rounded-lg px-4 py-2 text-base font-medium transition-colors ${
+                `relative whitespace-nowrap rounded-lg px-2 py-1.5 text-sm font-medium transition-colors sm:px-4 sm:py-2 sm:text-base ${
                   isActive
                     ? 'bg-indigo-500 text-white'
                     : 'text-gray-600 hover:bg-indigo-50 hover:text-indigo-500 dark:text-gray-300 dark:hover:bg-gray-800'
@@ -53,7 +53,7 @@ export default function AppNav() {
           ))}
         </nav>
       </div>
-      <div className="flex items-center gap-3 rounded-xl bg-white p-3 dark:bg-gray-800">
+      <div className="flex shrink-0 items-center gap-3 rounded-xl bg-white p-2 dark:bg-gray-800 sm:p-3">
         {session?.user.role === 'admin' && (
           <Tooltip content="用户管理">
             <button type="button" aria-label="用户管理" className={iconButtonClass} onClick={() => navigate('/admin')}>

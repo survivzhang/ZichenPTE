@@ -33,7 +33,8 @@ const Letter: React.FC<LetterProps> = ({ letter, state = 'normal', visible = tru
       className={`m-0 p-0 font-mono font-normal ${
         stateClassNameMap[(letter === EXPLICIT_SPACE) as unknown as string][state]
       } pr-0.8 duration-0 dark:text-opacity-80`}
-      style={{ fontSize: (fontSizeConfig.foreignFont * fontScale).toString() + 'px' }}
+      // Capped by the screen width so long words still fit on a phone.
+      style={{ fontSize: `min(${fontSizeConfig.foreignFont * fontScale}px, ${9 * fontScale}vw)` }}
     >
       {visible ? letter : '_'}
     </span>

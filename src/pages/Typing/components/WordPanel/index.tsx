@@ -2,6 +2,7 @@ import { TypingContext, TypingStateActionType } from '../../store'
 import PrevAndNextWord from '../PrevAndNextWord'
 import Progress from '../Progress'
 import Phonetic from './components/Phonetic'
+import { isTouchDevice } from './components/TouchInputHandler'
 import Translation from './components/Translation'
 import WordComponent from './components/Word'
 import { usePrefetchPronunciationSound } from '@/hooks/usePronunciation'
@@ -138,10 +139,15 @@ export default function WordPanel() {
         {currentWord && (
           <div className="relative flex w-full justify-center">
             {!state.isTyping && (
-              <div className="absolute flex h-full w-full justify-center">
+              <div
+                className="absolute flex h-full w-full justify-center"
+                data-start-typing
+                onClick={() => isTouchDevice && dispatch({ type: TypingStateActionType.SET_IS_TYPING, payload: true })}
+              >
                 <div className="z-10 flex w-full items-center backdrop-blur-sm">
                   <p className="w-full select-none text-center text-xl text-gray-600 dark:text-gray-50">
-                    按任意键{state.timerData.time ? '继续' : '开始'}
+                    {isTouchDevice ? '点一下' : '按任意键'}
+                    {state.timerData.time ? '继续' : '开始'}
                   </p>
                 </div>
               </div>
