@@ -28,8 +28,8 @@ export default function LoginPage() {
         className="w-full max-w-sm rounded-2xl bg-white p-8 shadow-lg shadow-indigo-100 dark:bg-gray-800 dark:shadow-none"
       >
         <div className="mb-8 flex flex-col items-center">
-          <img src={logo} className="h-16 w-16" alt="Qwerty Learner Logo" />
-          <h1 className="mt-3 text-2xl font-bold text-indigo-500">Qwerty Learner</h1>
+          <img src={logo} className="h-16 w-16" alt="Zichen-PTE Logo" />
+          <h1 className="mt-3 text-2xl font-bold text-indigo-500">Zichen-PTE</h1>
           <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">登录后开始练习</p>
         </div>
 

@@ -4,7 +4,7 @@ For scripts and agents (e.g. Claude) to add words to a user's review queue —
 typically words gotten wrong while practicing PTE listening, speaking, reading
 or writing elsewhere.
 
-- **Base URL:** `https://qwerty-learner-pi-plum.vercel.app/api/v1` (local dev: `http://localhost:5173/api/v1`)
+- **Base URL:** `https://pte.zichen1998.com/api/v1` (local dev: `http://localhost:5173/api/v1`)
 - **Auth:** `Authorization: Bearer <key>`. Keys are created by an admin on the 用户管理 page (API 密钥 section) and start with `qlk_`. A key acts with admin rights and stops working when revoked or when its creator is no longer an admin. Never commit a key.
 - **Format:** JSON in, JSON out. Errors: `401` bad/missing key, `400` invalid body (`issues` explains why), `404` unknown username.
 

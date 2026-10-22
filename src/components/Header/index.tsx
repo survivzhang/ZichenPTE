@@ -16,8 +16,8 @@ const Header: React.FC<PropsWithChildren> = ({ children }) => {
     <header className="container z-20 mx-auto w-full px-3 py-4 sm:px-10 sm:py-6">
       <div className="flex w-full flex-col items-center justify-between space-y-3 lg:flex-row lg:space-y-0">
         <NavLink className="flex items-center text-2xl font-bold text-indigo-500 no-underline hover:no-underline lg:text-4xl" to="/">
-          <img src={logo} className="mr-3 h-10 w-10 sm:h-16 sm:w-16" alt="Qwerty Learner Logo" />
-          <h1 className="whitespace-nowrap lg:hidden xl:block">Qwerty Learner</h1>
+          <img src={logo} className="mr-3 h-10 w-10 sm:h-16 sm:w-16" alt="Zichen-PTE Logo" />
+          <h1 className="whitespace-nowrap lg:hidden xl:block">Zichen-PTE</h1>
         </NavLink>
         <nav className="my-card on element flex w-auto max-w-full shrink-0 flex-wrap content-center items-center justify-center gap-3 whitespace-nowrap rounded-xl bg-white p-3 transition-colors duration-300 dark:bg-gray-800 sm:flex-nowrap sm:justify-end sm:p-4">
           {children}

@@ -6,7 +6,7 @@
     "distDir": "../build"
   },
   "package": {
-    "productName": "qwerty-learner",
+    "productName": "Zichen-PTE",
     "version": "0.1.0"
   },
   "tauri": {
@@ -51,7 +51,7 @@
         "fullscreen": false,
         "height": 600,
         "resizable": true,
-        "title": "qwerty-learner",
+        "title": "Zichen-PTE",
         "width": 800
       }
     ]

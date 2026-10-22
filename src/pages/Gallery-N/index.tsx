@@ -1,6 +1,5 @@
 import type { CategoryGroup } from './CategoryAccordion'
 import CategoryAccordion from './CategoryAccordion'
-import DictRequest from './DictRequest'
 import AppNav from '@/components/AppNav'
 import Layout from '@/components/Layout'
 import useGoBack from '@/hooks/useGoBack'
@@ -59,7 +58,6 @@ export default function GalleryPage() {
                 <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">其他词典</h1>
                 <p className="mt-1 text-gray-500 dark:text-gray-400">点击分类展开，再点击小类查看词典。PTE 词典在首页。</p>
               </div>
-              <DictRequest />
             </div>
             <ScrollArea.Root className="flex-1 overflow-y-auto">
               <ScrollArea.Viewport className="h-full w-full ">

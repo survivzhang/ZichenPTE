@@ -29,7 +29,7 @@ export async function synthesize(text: string): Promise<Buffer | null> {
       'Ocp-Apim-Subscription-Key': process.env.AZURE_SPEECH_KEY as string,
       'Content-Type': 'application/ssml+xml',
       'X-Microsoft-OutputFormat': 'audio-24khz-48kbitrate-mono-mp3',
-      'User-Agent': 'qwerty-learner',
+      'User-Agent': 'zichen-pte',
     },
     body: ssml,
   })

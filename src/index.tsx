@@ -2,7 +2,6 @@ import Loading from './components/Loading'
 import PreferencesSync from './components/PreferencesSync'
 import './index.css'
 import { ErrorBook } from './pages/ErrorBook'
-import { FriendLinks } from './pages/FriendLinks'
 import HomePage from './pages/Home'
 import TypingPage from './pages/Typing'
 import { authClient } from './utils/auth-client'
@@ -29,7 +28,7 @@ function Root() {
 
   return (
     <React.StrictMode>
-      <BrowserRouter basename={REACT_APP_DEPLOY_ENV === 'pages' ? '/qwerty-learner' : ''}>
+      <BrowserRouter basename={REACT_APP_DEPLOY_ENV === 'pages' ? '/ZichenPTE' : ''}>
         <Suspense fallback={<Loading />}>
           {isPending ? (
             <Loading />
@@ -43,7 +42,6 @@ function Root() {
                 <Route path="/gallery" element={<GalleryPage />} />
                 <Route path="/analysis" element={<AnalysisPage />} />
                 <Route path="/error-book" element={<ErrorBook />} />
-                <Route path="/friend-links" element={<FriendLinks />} />
                 {session.user.role === 'admin' && <Route path="/admin" element={<AdminPage />} />}
                 <Route path="/*" element={<Navigate to="/" />} />
               </Routes>

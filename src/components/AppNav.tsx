@@ -26,8 +26,8 @@ export default function AppNav() {
     <header className="container z-20 mx-auto flex w-full items-center justify-between gap-2 px-3 py-4 sm:px-10 sm:py-6">
       <div className="flex min-w-0 items-center gap-2 sm:gap-8">
         <NavLink to="/" className="flex items-center text-2xl font-bold text-indigo-500 no-underline hover:no-underline">
-          <img src={logo} className="h-8 w-8 sm:mr-3 sm:h-12 sm:w-12" alt="Qwerty Learner Logo" />
-          <span className="hidden whitespace-nowrap xl:inline">Qwerty Learner</span>
+          <img src={logo} className="h-8 w-8 sm:mr-3 sm:h-12 sm:w-12" alt="Zichen-PTE Logo" />
+          <span className="hidden whitespace-nowrap xl:inline">Zichen-PTE</span>
         </NavLink>
         <nav className="flex items-center sm:gap-1">
           {links.map(({ to, label, end, showDue }) => (

@@ -1,5 +1,5 @@
 services:
-  qwertylearner:
+  zichen-pte:
     build:
       context: .
       dockerfile: Dockerfile

@@ -80,7 +80,7 @@ export default function SharePicDialog({ showState, setShowState, randomChoose }
     const { saveAs } = await import('file-saver')
 
     if (imageURL) {
-      saveAs(imageURL, 'Qwerty-learner.png')
+      saveAs(imageURL, 'Zichen-PTE.png')
     }
   }, [imageURL])
 
@@ -176,8 +176,8 @@ export default function SharePicDialog({ showState, setShowState, randomChoose }
               <div className="ml-5 mt-2 self-start text-xs text-gray-600">{`第 ${currentChapter + 1} 章`}</div>
             </div>
             <div className="mb-3 ml-5 mt-auto">
-              <div className="text-xs">Qwerty.kaiyi.cool</div>
-              <div className="mt-1 text-xs font-normal text-gray-400">为键盘工作者设计的单词与肌肉记忆锻炼软件</div>
+              <div className="text-xs">pte.zichen1998.com</div>
+              <div className="mt-1 text-xs font-normal text-gray-400">PTE 单词、FIB 搭配和 WFD 听写练习</div>
             </div>
             <div className="absolute -right-9 bottom-10 ">
               <img src={shareImage} className="w-48" width={186} height={122} />
