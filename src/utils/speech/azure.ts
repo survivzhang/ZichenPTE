@@ -144,9 +144,11 @@ export function assessSpeech(mic: MicCapture, referenceText: string, locale: Spe
 
     const speechConfig = sdk.SpeechConfig.fromAuthorizationToken(token.token, token.region)
     speechConfig.speechRecognitionLanguage = locale
-    // Wait up to 6 s for the first sound, and stop 0.8 s after the word ends.
+    // Wait up to 6 s for the first sound. The phrase ends after 1 s of silence; a shorter
+    // end-silence (the deprecated EndSilenceTimeoutMs, 800 ms) made the service give up on
+    // single words with NoMatch:NotRecognized right after it had heard them.
     speechConfig.setProperty(sdk.PropertyId.SpeechServiceConnection_InitialSilenceTimeoutMs, '6000')
-    speechConfig.setProperty(sdk.PropertyId.SpeechServiceConnection_EndSilenceTimeoutMs, '800')
+    speechConfig.setProperty(sdk.PropertyId.Speech_SegmentationSilenceTimeoutMs, '1000')
 
     // Audio is pushed from our own capture (see mic.ts), not the SDK's microphone input.
     const pushStream = sdk.AudioInputStream.createPushStream(sdk.AudioStreamFormat.getWaveFormatPCM(TARGET_SAMPLE_RATE, 16, 1))
