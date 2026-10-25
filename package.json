@@ -39,6 +39,7 @@
     "immer": "^9.0.21",
     "jotai": "^2.0.3",
     "lucide-react": "^0.294.0",
+    "microsoft-cognitiveservices-speech-sdk": "1.53.0",
     "postgres": "^3.4.9",
     "react": "^18.2.0",
     "react-activity-calendar": "^2.0.2",

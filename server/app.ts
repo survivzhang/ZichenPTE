@@ -2,8 +2,9 @@ import { auth } from './auth.js'
 import { bankChapters, findBankItem, importBankItems } from './bank.js'
 import type { BankType } from './bank.js'
 import { db } from './db/index.js'
-import { apiKey, chapterRecord, user, userPreference, wordRecord } from './db/schema.js'
-import { CARD_TYPES, dueCards, importWords, listCards, parseFib, recordAnswer, recordBankAnswer } from './srs.js'
+import { apiKey, chapterRecord, speakRecord, user, userPreference, wordRecord } from './db/schema.js'
+import { isSpeechConfigured, speechToken } from './speech.js'
+import { CARD_TYPES, dueCards, importWords, listCards, parseFib, recordAnswer, recordBankAnswer, recordSpeakAnswer } from './srs.js'
 import { isTtsConfigured, synthesize } from './tts.js'
 import { and, asc, between, count, countDistinct, desc, eq, gte, inArray, isNull, sql } from 'drizzle-orm'
 import { Hono } from 'hono'
@@ -53,9 +54,34 @@ const chapterRecordInput = z.object({
   timeStamp: unixSeconds,
 })
 
+const speakRecordInput = z.object({
+  word: z.string().min(1).max(200),
+  dict: z.string().min(1).max(200),
+  chapter: z.number().int().nullable(),
+  // Azure accuracy score; null when marked by hand because Azure was unavailable
+  score: z.number().int().min(0).max(100).nullable(),
+  passed: z.boolean(),
+  firstTry: z.boolean(),
+  manual: z.boolean().default(false),
+  locale: z.string().min(2).max(10),
+  phonemes: z
+    .array(z.object({ phoneme: z.string().max(20).nullable(), score: z.number().min(0).max(100) }))
+    .max(100)
+    .default([]),
+  durationMs: z.number().int().nonnegative().nullish(),
+  timeStamp: unixSeconds,
+  mode: z.enum(['learn', 'review']).default('learn'),
+  trans: z.array(z.string()).optional(),
+  usphone: z.string().nullish(),
+  ukphone: z.string().nullish(),
+  cardId: z.number().int().positive().optional(),
+})
+
 const preferencesInput = z.object({
   currentDict: z.string().min(1).max(200),
   currentChapter: z.number().int().nonnegative(),
+  speakDict: z.string().min(1).max(200).optional(),
+  speakChapter: z.number().int().nonnegative().optional(),
 })
 
 // trans may be sent as one string ("n. 苹果; 苹果树") or a list
@@ -227,6 +253,20 @@ app.get('/tts', requireUser, async (c) => {
   }
 })
 
+// A short-lived Azure Speech token for pronunciation assessment in the browser.
+// 503 when Azure is not configured: the client then lets the user mark words by hand.
+app.get('/speech/token', requireUser, async (c) => {
+  if (!isSpeechConfigured()) return c.json({ error: 'Speech not configured' }, 503)
+  try {
+    const token = await speechToken()
+    if (!token) return c.json({ error: 'Speech not configured' }, 503)
+    return c.json(token)
+  } catch (error) {
+    console.error(error)
+    return c.json({ error: 'Speech token failed' }, 502)
+  }
+})
+
 // One-time merge of a browser's old local error book into the account.
 app.post('/review/import-local', async (c) => {
   const parsed = z
@@ -244,13 +284,20 @@ app.post('/review/import-local', async (c) => {
 })
 
 // Words (lowercased) the user has practiced in any of the given dictionaries.
+// ?mode=speak looks at words read aloud (speak records) instead of typed ones.
 app.get('/words/practiced', async (c) => {
   const dicts = (c.req.query('dicts') ?? '').split(',').filter(Boolean).slice(0, 100)
   if (dicts.length === 0) return c.json({ words: [] })
-  const rows = await db
-    .selectDistinct({ word: wordRecord.word })
-    .from(wordRecord)
-    .where(and(eq(wordRecord.userId, c.get('userId')), inArray(wordRecord.dict, dicts)))
+  const rows =
+    c.req.query('mode') === 'speak'
+      ? await db
+          .selectDistinct({ word: speakRecord.word })
+          .from(speakRecord)
+          .where(and(eq(speakRecord.userId, c.get('userId')), inArray(speakRecord.dict, dicts)))
+      : await db
+          .selectDistinct({ word: wordRecord.word })
+          .from(wordRecord)
+          .where(and(eq(wordRecord.userId, c.get('userId')), inArray(wordRecord.dict, dicts)))
   return c.json({ words: Array.from(new Set(rows.map((row) => row.word.toLowerCase()))) })
 })
 
@@ -376,10 +423,15 @@ app.get('/progress', async (c) => {
 
 app.get('/preferences', async (c) => {
   const [row] = await db
-    .select({ currentDict: userPreference.currentDict, currentChapter: userPreference.currentChapter })
+    .select({
+      currentDict: userPreference.currentDict,
+      currentChapter: userPreference.currentChapter,
+      speakDict: userPreference.speakDict,
+      speakChapter: userPreference.speakChapter,
+    })
     .from(userPreference)
     .where(eq(userPreference.userId, c.get('userId')))
-  return c.json(row ?? { currentDict: null, currentChapter: null })
+  return c.json(row ?? { currentDict: null, currentChapter: null, speakDict: null, speakChapter: null })
 })
 
 app.put('/preferences', async (c) => {
@@ -414,6 +466,34 @@ app.post('/records/words', async (c) => {
       c.get('userId'),
       { word: record.word, trans, usphone, ukphone },
       { correct, kind: mode, originDict: record.dict, cardId },
+    )
+  }
+  return c.json(row, 201)
+})
+
+// One attempt at reading a word aloud. Only the first attempt grades the speak card
+// (or creates one on failure); later attempts in the same chapter are just logged.
+app.post('/records/speak', async (c) => {
+  const parsed = speakRecordInput.safeParse(await c.req.json().catch(() => null))
+  if (!parsed.success) {
+    return c.json({ error: 'Invalid speak record', issues: parsed.error.issues }, 400)
+  }
+  const { timeStamp, mode, trans, usphone, ukphone, cardId, ...record } = parsed.data
+  const [row] = await db
+    .insert(speakRecord)
+    .values({ ...record, spokenAt: timeStamp, userId: c.get('userId') })
+    .returning({ id: speakRecord.id })
+  if (record.firstTry) {
+    await recordSpeakAnswer(
+      c.get('userId'),
+      { word: record.word, trans, usphone, ukphone },
+      {
+        passed: record.passed,
+        kind: mode,
+        originDict: record.dict,
+        cardId,
+        attempt: { score: record.score, phonemes: record.phonemes, locale: record.locale },
+      },
     )
   }
   return c.json(row, 201)

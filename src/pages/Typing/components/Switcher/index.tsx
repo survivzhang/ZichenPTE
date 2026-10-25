@@ -16,7 +16,7 @@ import IconSun from '~icons/heroicons/sun-solid'
 import IconLanguage from '~icons/tabler/language'
 import IconLanguageOff from '~icons/tabler/language-off'
 
-export default function Switcher() {
+export default function Switcher({ speak = false }: { speak?: boolean }) {
   const [isOpenDarkMode, setIsOpenDarkMode] = useAtom(isOpenDarkModeAtom)
   const { state, dispatch } = useContext(TypingContext) ?? {}
 
@@ -41,13 +41,17 @@ export default function Switcher() {
 
   return (
     <div className="flex items-center justify-center gap-2">
-      <Tooltip content="音效设置">
-        <SoundSwitcher />
-      </Tooltip>
+      {!speak && (
+        <>
+          <Tooltip content="音效设置">
+            <SoundSwitcher />
+          </Tooltip>
 
-      <Tooltip className="h-7 w-7" content="设置单个单词循环">
-        <LoopWordSwitcher />
-      </Tooltip>
+          <Tooltip className="h-7 w-7" content="设置单个单词循环">
+            <LoopWordSwitcher />
+          </Tooltip>
+        </>
+      )}
 
       <Tooltip className="h-7 w-7" content={`开关释义显示（${CTRL} + Shift + V）`}>
         <button
@@ -84,9 +88,11 @@ export default function Switcher() {
           {isOpenDarkMode ? <IconMoon className="icon" /> : <IconSun className="icon" />}
         </button>
       </Tooltip>
-      <Tooltip className="h-7 w-7" content="指法图示">
-        <HandPositionIllustration></HandPositionIllustration>
-      </Tooltip>
+      {!speak && (
+        <Tooltip className="h-7 w-7" content="指法图示">
+          <HandPositionIllustration></HandPositionIllustration>
+        </Tooltip>
+      )}
       <Tooltip content="设置">
         <Setting />
       </Tooltip>

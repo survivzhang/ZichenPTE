@@ -4,7 +4,8 @@ import ConclusionBar from './ConclusionBar'
 import RemarkRing from './RemarkRing'
 import WordChip from './WordChip'
 import Tooltip from '@/components/Tooltip'
-import { currentChapterAtom, currentDictInfoAtom, randomConfigAtom } from '@/store'
+import { SPEAK_PASS_SCORE, activeChapterAtom, activeDictInfoAtom, randomConfigAtom } from '@/store'
+import { useIsSpeakTrack } from '@/utils/db'
 import { Transition } from '@headlessui/react'
 import { useAtom, useAtomValue } from 'jotai'
 import { useCallback, useContext, useEffect, useMemo } from 'react'
@@ -16,9 +17,10 @@ const ResultScreen = () => {
   // eslint-disable-next-line  @typescript-eslint/no-non-null-assertion
   const { state, dispatch } = useContext(TypingContext)!
 
-  const currentDictInfo = useAtomValue(currentDictInfoAtom)
-  const [currentChapter, setCurrentChapter] = useAtom(currentChapterAtom)
+  const currentDictInfo = useAtomValue(activeDictInfoAtom)
+  const [currentChapter, setCurrentChapter] = useAtom(activeChapterAtom)
   const randomConfig = useAtomValue(randomConfigAtom)
+  const isSpeak = useIsSpeakTrack()
 
   useEffect(() => {
     // tick a zero timer to calc the stats
@@ -107,6 +109,27 @@ const ResultScreen = () => {
     dispatch({ type: TypingStateActionType.REPEAT_CHAPTER, shouldShuffle: false })
   }, [dispatch])
 
+  // 跟读: read only the words that went wrong, as a pass of their own.
+  const retryWrongHandler = useCallback(() => {
+    dispatch({ type: TypingStateActionType.RETRY_WRONG_WORDS })
+  }, [dispatch])
+
+  // Average of the scores that counted (the first attempt of every word).
+  const averageScore = useMemo(() => {
+    const scores = Object.values(state.chapterData.speakResults)
+      .map((r) => r.firstScore)
+      .filter((score): score is number => score !== null)
+    return scores.length ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : null
+  }, [state.chapterData.speakResults])
+
+  // What to show next to a mispronounced word: its first score, or how it was decided without one.
+  const speakBadge = (word: (typeof wrongWords)[number]) => {
+    const result = state.chapterData.speakResults[state.chapterData.words.indexOf(word)]
+    if (!result) return undefined
+    if (result.firstScore !== null) return String(result.firstScore)
+    return result.manual ? '手动' : '跳过'
+  }
+
   useHotkeys(
     'enter',
     () => {
@@ -140,7 +163,9 @@ const ResultScreen = () => {
         <div className="flex h-screen items-center justify-center">
           <div className="my-card fixed flex w-[90vw] max-w-6xl flex-col overflow-hidden rounded-3xl bg-white pb-14 pl-10 pr-5 pt-10 shadow-lg dark:bg-gray-800 md:w-4/5 lg:w-3/5">
             <div className="text-center font-sans text-xl font-normal text-gray-900 dark:text-gray-400 md:text-2xl">
+              {isSpeak && <span className="mr-2 rounded-md bg-indigo-500 px-2 py-0.5 text-base text-white">跟读</span>}
               {`${currentDictInfo.name} 第${currentChapter + 1}章`}
+              {state.isRetryPass && <span className="ml-2 text-base text-gray-400">· 重读错音词</span>}
             </div>
             <button className="absolute right-7 top-5" onClick={exitButtonHandler}>
               <IconX className="text-gray-400" />
@@ -153,24 +178,40 @@ const ResultScreen = () => {
                   percentage={firstTry.percent}
                 />
                 <RemarkRing remark={timeString} caption="章节耗时" />
-                <RemarkRing remark={state.timerData.wpm + ''} caption="WPM" />
+                {isSpeak ? (
+                  <RemarkRing remark={averageScore === null ? '—' : averageScore + ''} caption={`平均分 · ${SPEAK_PASS_SCORE} 分及格`} />
+                ) : (
+                  <RemarkRing remark={state.timerData.wpm + ''} caption="WPM" />
+                )}
               </div>
               <div className="z-10 ml-6 flex-1 overflow-visible rounded-xl bg-indigo-50 dark:bg-gray-700">
                 <div className="customized-scrollbar z-20 ml-8 mr-1 flex h-80 flex-row flex-wrap content-start gap-4 overflow-y-auto overflow-x-hidden pr-7 pt-9">
                   {wrongWords.map((word, index) => (
-                    <WordChip key={`${index}-${word.name}`} word={word} />
+                    <WordChip key={`${index}-${word.name}`} word={word} badge={isSpeak ? speakBadge(word) : undefined} />
                   ))}
                 </div>
                 <div className="align-center flex w-full flex-row justify-start rounded-b-xl bg-indigo-200 px-4 dark:bg-indigo-400">
                   <ConclusionBar mistakeLevel={mistakeLevel} mistakeCount={wrongWords.length} />
                 </div>
               </div>
-              <div className="ml-2 flex flex-col items-center justify-end gap-3 text-xl">
-                <ShareButton />
-                <IexportWords fontSize={18} className="cursor-pointer text-gray-500" onClick={exportWords}></IexportWords>
-              </div>
+              {!isSpeak && (
+                <div className="ml-2 flex flex-col items-center justify-end gap-3 text-xl">
+                  <ShareButton />
+                  <IexportWords fontSize={18} className="cursor-pointer text-gray-500" onClick={exportWords}></IexportWords>
+                </div>
+              )}
             </div>
             <div className="mt-10 flex w-full justify-center gap-5 px-5 text-xl">
+              {isSpeak && wrongWords.length > 0 && (
+                <button
+                  className="my-btn-primary h-12 border-2 border-solid border-indigo-400 bg-white text-base text-indigo-600 dark:bg-gray-600 dark:text-white"
+                  type="button"
+                  onClick={retryWrongHandler}
+                  title="只重读错音词"
+                >
+                  只重读错音词 · {wrongWords.length}
+                </button>
+              )}
               <Tooltip content="快捷键：space">
                 <button
                   className="my-btn-primary h-12 border-2 border-solid border-gray-300 bg-white text-base text-gray-700 dark:border-gray-700 dark:bg-gray-600 dark:text-white dark:hover:bg-gray-700"

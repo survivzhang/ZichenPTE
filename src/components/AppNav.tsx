@@ -20,7 +20,9 @@ const iconButtonClass =
 export default function AppNav() {
   const navigate = useNavigate()
   const { data: session } = authClient.useSession()
-  const { count: dueCount } = useDueReviews()
+  const { count: wordDue } = useDueReviews()
+  const { count: speakDue } = useDueReviews('speak')
+  const dueCount = (wordDue ?? 0) + (speakDue ?? 0)
 
   return (
     <header className="container z-20 mx-auto flex w-full items-center justify-between gap-2 px-3 py-4 sm:px-10 sm:py-6">

@@ -10,9 +10,11 @@ import IconArrowRight from '~icons/tabler/arrow-right'
 
 type HistoryEntry = { kind: 'learn' | 'review' | 'import'; correct: boolean; at: string }
 
+type SpeakDetail = { scores: (number | null)[]; phonemes: { phoneme: string | null; score: number }[]; locale: string }
+
 type ReviewCard = {
   id: number
-  type: 'word' | 'fib' | 'wfd'
+  type: 'word' | 'fib' | 'wfd' | 'speak'
   word: string
   sentence: string | null
   trans: string[]
@@ -21,6 +23,7 @@ type ReviewCard = {
   source: string
   note: string | null
   originDict: string | null
+  detail: SpeakDetail | null
   due: string
   reps: number
   lapses: number
@@ -44,9 +47,47 @@ const FILTERS = [
 
 const TYPE_TABS = [
   { id: 'word', label: '单词' },
+  { id: 'speak', label: '错音' },
   { id: 'fib', label: 'FIB 固定搭配' },
   { id: 'wfd', label: 'WFD 拼写' },
 ] as const
+
+const scoreClass = (score: number) =>
+  score >= 80
+    ? 'bg-green-50 text-green-600 dark:bg-green-900/40 dark:text-green-300'
+    : score >= 60
+    ? 'bg-amber-50 text-amber-600 dark:bg-amber-900/40 dark:text-amber-300'
+    : 'bg-red-50 text-red-500 dark:bg-red-900/40 dark:text-red-300'
+
+/** A speak card's scores so far and the phonemes of its latest failed reading. */
+function SpeakDetailCell({ detail }: { detail: SpeakDetail | null }) {
+  if (!detail) return <span className="text-gray-400">—</span>
+  const weak = detail.phonemes.filter((p) => p.score < 80)
+  return (
+    <div className="flex flex-col gap-1.5">
+      <div className="flex flex-wrap gap-1">
+        {detail.scores.map((score, i) => (
+          <span
+            key={i}
+            className={`rounded-md px-1.5 py-0.5 text-xs font-medium ${score === null ? 'bg-gray-100 text-gray-500' : scoreClass(score)}`}
+          >
+            {score === null ? '手动' : score}
+          </span>
+        ))}
+      </div>
+      {weak.length > 0 && (
+        <div className="flex flex-wrap gap-1 font-mono text-xs">
+          {weak.map((p, i) => (
+            <span key={i} className={`rounded px-1.5 py-0.5 ${scoreClass(p.score)}`}>
+              {p.phoneme ?? `第${detail.phonemes.indexOf(p) + 1}音`} {p.score}
+            </span>
+          ))}
+          <span className="text-gray-400">({detail.locale === 'en-US' ? '美音' : '英音'})</span>
+        </div>
+      )}
+    </div>
+  )
+}
 
 /** The FIB sentence with its answer highlighted. */
 function FibSentence({ sentence }: { sentence: string }) {
@@ -112,7 +153,8 @@ export function ErrorBook() {
   const { count: dueCount } = useDueReviews(type)
   const startSession = useStartSession()
   const [filter, setFilter] = useState('all')
-  const isSentence = type !== 'word'
+  const isSentence = type === 'fib' || type === 'wfd'
+  const isSpeak = type === 'speak'
   const unit = isSentence ? '句' : '词'
 
   const cards = useMemo(() => data?.cards ?? [], [data])
@@ -133,7 +175,11 @@ export function ErrorBook() {
               <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">错题本</h1>
               <p className="mt-1 text-gray-500 dark:text-gray-400">
                 共 {cards.length} {unit} · {isSentence ? '建议今天复习' : '今日待复习'} {dueCount ?? '…'} {unit}
-                {isSentence ? ' · 不计入每日强制复习' : ' · 第一遍就打对的词不会进入这里'}
+                {isSentence
+                  ? ' · 不计入每日强制复习'
+                  : isSpeak
+                  ? ' · 跟读时第一遍没读到 80 分的词；复习完才能跟读新章节'
+                  : ' · 第一遍就打对的词不会进入这里'}
               </p>
             </div>
             {!!dueCount && (
@@ -169,7 +215,7 @@ export function ErrorBook() {
           </div>
 
           <div className="mt-4 flex flex-wrap gap-2">
-            {(isSentence ? FILTERS.slice(0, 2) : FILTERS).map(({ id, label }) => (
+            {(isSentence || isSpeak ? FILTERS.slice(0, 2) : FILTERS).map(({ id, label }) => (
               <button
                 key={id}
                 type="button"
@@ -191,7 +237,11 @@ export function ErrorBook() {
                 <tr>
                   <th className="px-4 py-3 font-medium">{isSentence ? '句子' : '单词'}</th>
                   <th className="px-4 py-3 font-medium">释义</th>
-                  {!isSentence && <th className="px-4 py-3 font-medium">来源</th>}
+                  {isSpeak ? (
+                    <th className="px-4 py-3 font-medium">得分 · 读错的音</th>
+                  ) : (
+                    !isSentence && <th className="px-4 py-3 font-medium">来源</th>
+                  )}
                   <th className="px-4 py-3 font-medium">学习记录</th>
                   <th className="px-4 py-3 font-medium">下次复习</th>
                 </tr>
@@ -207,7 +257,11 @@ export function ErrorBook() {
                       ) : (
                         <>
                           <div className="font-mono text-lg font-medium text-gray-800 dark:text-gray-100">{card.word}</div>
-                          {(card.usphone || card.ukphone) && <div className="text-xs text-gray-400">/{card.usphone || card.ukphone}/</div>}
+                          {(card.usphone || card.ukphone) && (
+                            <div className="text-xs text-gray-400">
+                              /{(card.detail?.locale === 'en-US' ? card.usphone : card.ukphone) || card.usphone || card.ukphone}/
+                            </div>
+                          )}
                         </>
                       )}
                     </td>
@@ -215,8 +269,14 @@ export function ErrorBook() {
                       {card.trans.join('；') || '—'}
                       {card.note && <div className="mt-1 text-xs text-gray-400">备注：{card.note}</div>}
                     </td>
-                    {!isSentence && (
-                      <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">{SOURCE_LABELS[card.source] ?? card.source}</td>
+                    {isSpeak ? (
+                      <td className="px-4 py-3">
+                        <SpeakDetailCell detail={card.detail} />
+                      </td>
+                    ) : (
+                      !isSentence && (
+                        <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">{SOURCE_LABELS[card.source] ?? card.source}</td>
+                      )
                     )}
                     <td className="px-4 py-3">
                       <HistoryChips history={card.history} />

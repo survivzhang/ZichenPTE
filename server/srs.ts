@@ -1,5 +1,6 @@
 import { db } from './db/index.js'
 import { reviewCard, reviewLog } from './db/schema.js'
+import type { SpeakDetail, SpeakPhoneme } from './db/schema.js'
 import { and, asc, eq, inArray, lte } from 'drizzle-orm'
 import type { Card, Grade } from 'ts-fsrs'
 import { Rating, createEmptyCard, fsrs, generatorParameters } from 'ts-fsrs'
@@ -8,7 +9,7 @@ import { Rating, createEmptyCard, fsrs, generatorParameters } from 'ts-fsrs'
 // not ten minutes later, so a day's review can actually be finished.
 const scheduler = fsrs(generatorParameters({ enable_short_term: false, enable_fuzz: true }))
 
-export const CARD_TYPES = ['word', 'fib', 'wfd'] as const
+export const CARD_TYPES = ['word', 'fib', 'wfd', 'speak'] as const
 export type CardType = (typeof CARD_TYPES)[number]
 export type CardSource = 'typing' | 'listening' | 'speaking' | 'reading' | 'writing' | 'other'
 
@@ -135,6 +136,83 @@ export async function recordAnswer(
     return
   }
   await grade(userId, row, correct, kind)
+}
+
+export type SpeakAttempt = {
+  // Azure accuracy score 0-100, null when marked by hand
+  score: number | null
+  phonemes: SpeakPhoneme[]
+  locale: string
+}
+
+/** The card's speak detail with one more attempt added; failed attempts replace the phoneme breakdown. */
+function nextDetail(detail: SpeakDetail | null, attempt: SpeakAttempt, passed: boolean): SpeakDetail {
+  const scores = [...(detail?.scores ?? []), attempt.score].slice(-20)
+  return {
+    scores,
+    phonemes: passed ? detail?.phonemes ?? [] : attempt.phonemes,
+    locale: attempt.locale,
+  }
+}
+
+/**
+ * Record one attempt at reading a word aloud (the 跟读 track). Mirrors
+ * recordAnswer, but on `speak` cards, which are independent of `word` cards:
+ *
+ * - With `cardId` (a speak review): grade that card; in `learn` mode only a
+ *   failure changes it.
+ * - Without (a word in a speak chapter): a first-try failure creates a speak
+ *   card or lapses the existing one; a pass changes nothing.
+ */
+export async function recordSpeakAnswer(
+  userId: string,
+  info: WordInfo,
+  {
+    passed,
+    kind,
+    originDict,
+    cardId,
+    attempt,
+  }: { passed: boolean; kind: 'learn' | 'review'; originDict?: string; cardId?: number; attempt: SpeakAttempt },
+) {
+  let row: CardRow | undefined
+  if (cardId !== undefined) {
+    ;[row] = await db
+      .select()
+      .from(reviewCard)
+      .where(and(eq(reviewCard.id, cardId), eq(reviewCard.userId, userId), eq(reviewCard.type, 'speak')))
+    if (!row || (kind === 'learn' && passed)) return
+  } else {
+    row = await findCard(userId, 'speak', normalizeWord(info.word))
+    if (!row) {
+      if (passed) return
+      ;[row] = await db
+        .insert(reviewCard)
+        .values({
+          userId,
+          type: 'speak',
+          word: normalizeWord(info.word),
+          displayWord: info.word.trim(),
+          trans: info.trans ?? [],
+          usphone: info.usphone ?? null,
+          ukphone: info.ukphone ?? null,
+          source: 'speaking',
+          originDict: originDict ?? null,
+          ...fromFsrsCard(createEmptyCard(new Date())),
+        })
+        .onConflictDoNothing({ target: [reviewCard.userId, reviewCard.type, reviewCard.word] })
+        .returning()
+      row ??= await findCard(userId, 'speak', normalizeWord(info.word))
+      if (!row) return
+    } else if (kind === 'learn' && passed) {
+      return
+    }
+  }
+  await db
+    .update(reviewCard)
+    .set({ detail: nextDetail(row.detail, attempt, passed) })
+    .where(eq(reviewCard.id, row.id))
+  await grade(userId, row, passed, kind)
 }
 
 type NewCard = {
@@ -269,6 +347,7 @@ const cardFields = {
   source: reviewCard.source,
   note: reviewCard.note,
   originDict: reviewCard.originDict,
+  detail: reviewCard.detail,
   due: reviewCard.due,
   reps: reviewCard.reps,
   lapses: reviewCard.lapses,

@@ -139,6 +139,39 @@ export const chapterRecord = pgTable(
   (t) => [index('chapter_record_user_dict_chapter_idx').on(t.userId, t.dict, t.chapter)],
 )
 
+// Pronunciation practice (跟读): one row per attempt at reading a word aloud,
+// scored by Azure pronunciation assessment. Independent of the typing records.
+export const speakRecord = pgTable(
+  'speak_record',
+  {
+    id: serial('id').primaryKey(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    word: text('word').notNull(),
+    // `<dict id>@speak` for a chapter, `srs-review@speak` for a review session
+    dict: text('dict').notNull(),
+    // -1 in review mode
+    chapter: integer('chapter'),
+    // Azure accuracy score 0-100; null when marked by hand (Azure unavailable)
+    score: integer('score'),
+    passed: boolean('passed').notNull(),
+    // the first attempt at the word in this chapter, the one that counts
+    firstTry: boolean('first_try').notNull(),
+    manual: boolean('manual').notNull().default(false),
+    locale: text('locale').notNull(),
+    phonemes: jsonb('phonemes').$type<SpeakPhoneme[]>().notNull().default([]),
+    // length of the recording, to keep an eye on the Azure quota
+    durationMs: integer('duration_ms'),
+    spokenAt: timestamp('spoken_at', { withTimezone: true }).notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    index('speak_record_user_dict_chapter_idx').on(t.userId, t.dict, t.chapter),
+    index('speak_record_user_word_idx').on(t.userId, t.word),
+  ],
+)
+
 export const userRelations = relations(user, ({ many }) => ({
   sessions: many(session),
   accounts: many(account),
@@ -159,8 +192,22 @@ export const userPreference = pgTable('user_preference', {
     .references(() => user.id, { onDelete: 'cascade' }),
   currentDict: text('current_dict'),
   currentChapter: integer('current_chapter'),
+  // the pronunciation (跟读) track keeps its own position
+  speakDict: text('speak_dict'),
+  speakChapter: integer('speak_chapter'),
   updatedAt: updatedAt(),
 })
+
+// What a pronunciation (speak) card remembers about how it was read.
+export type SpeakPhoneme = { phoneme: string | null; score: number }
+export type SpeakDetail = {
+  // Azure accuracy scores, oldest first (the last 20); null = marked by hand
+  scores: (number | null)[]
+  // per-phoneme scores of the latest failed attempt
+  phonemes: SpeakPhoneme[]
+  // en-GB / en-US: which accent the scores are against
+  locale: string
+}
 
 // ---------------------------------------------------------------------------
 // Spaced repetition (FSRS). A card exists for every word the user has gotten
@@ -170,6 +217,8 @@ export const userPreference = pgTable('user_preference', {
 // type = word: a single word; part of the mandatory daily review.
 // type = fib / wfd: a PTE Fill-in-the-Blank collocation or Write From Dictation
 // sentence; their own optional practice, never part of the daily review.
+// type = speak: a word mispronounced while reading a chapter aloud (the 错音库);
+// its review is mandatory before a new speak chapter, independent of `word`.
 // ---------------------------------------------------------------------------
 
 export const reviewCard = pgTable(
@@ -193,6 +242,8 @@ export const reviewCard = pgTable(
     source: text('source').notNull().default('typing'),
     note: text('note'),
     originDict: text('origin_dict'),
+    // speak cards: scores and the phonemes that went wrong
+    detail: jsonb('detail').$type<SpeakDetail>(),
     // FSRS card state (see ts-fsrs Card)
     due: timestamp('due', { withTimezone: true }).notNull(),
     stability: doublePrecision('stability').notNull(),

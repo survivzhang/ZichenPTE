@@ -2,7 +2,7 @@ import { TypingContext, TypingStateActionType } from '../../store'
 import WordCard from './WordCard'
 import Drawer from '@/components/Drawer'
 import Tooltip from '@/components/Tooltip'
-import { currentChapterAtom, currentDictInfoAtom, srsReviewAtom } from '@/store'
+import { activeChapterAtom, activeDictInfoAtom, srsReviewAtom } from '@/store'
 import { sessionLabel } from '@/utils/review'
 import { Dialog } from '@headlessui/react'
 import * as ScrollArea from '@radix-ui/react-scroll-area'
@@ -16,7 +16,7 @@ const currentDictTitle = atom((get) => {
   if (session.active) {
     return sessionLabel(session.type, session.mode, session.title)
   }
-  return `${get(currentDictInfoAtom).name} 第 ${get(currentChapterAtom) + 1} 章`
+  return `${get(activeDictInfoAtom).name} 第 ${get(activeChapterAtom) + 1} 章`
 })
 
 export default function WordList() {

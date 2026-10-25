@@ -1,13 +1,13 @@
 import KeyEventHandler from '../KeyEventHandler'
 import TextAreaHandler from '../TextAreaHandler'
 import TouchInputHandler, { isTouchDevice } from '../TouchInputHandler'
-import { currentDictInfoAtom } from '@/store'
+import { activeDictInfoAtom } from '@/store'
 import { useAtomValue } from 'jotai'
 import type { FormEvent } from 'react'
 import { useMemo } from 'react'
 
 export default function InputHandler({ updateInput }: { updateInput: (updateObj: WordUpdateAction) => void }) {
-  const dictInfo = useAtomValue(currentDictInfoAtom)
+  const dictInfo = useAtomValue(activeDictInfoAtom)
 
   const handler = useMemo(() => {
     if (isTouchDevice) return <TouchInputHandler updateInput={updateInput} />

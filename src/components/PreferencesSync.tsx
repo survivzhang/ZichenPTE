@@ -1,6 +1,6 @@
 import Loading from '@/components/Loading'
 import { idDictionaryMap } from '@/resources/dictionary'
-import { currentChapterAtom, currentDictIdAtom } from '@/store'
+import { currentChapterAtom, currentDictIdAtom, speakChapterAtom, speakDictIdAtom } from '@/store'
 import { getJSON, putJSON } from '@/utils/api'
 import { useAtom } from 'jotai'
 import type { ReactNode } from 'react'
@@ -9,6 +9,8 @@ import { useEffect, useState } from 'react'
 type Preferences = {
   currentDict: string | null
   currentChapter: number | null
+  speakDict: string | null
+  speakChapter: number | null
 }
 
 /**
@@ -19,6 +21,8 @@ type Preferences = {
 export default function PreferencesSync({ children }: { children: ReactNode }) {
   const [currentDictId, setCurrentDictId] = useAtom(currentDictIdAtom)
   const [currentChapter, setCurrentChapter] = useAtom(currentChapterAtom)
+  const [speakDictId, setSpeakDictId] = useAtom(speakDictIdAtom)
+  const [speakChapter, setSpeakChapter] = useAtom(speakChapterAtom)
   const [isLoaded, setIsLoaded] = useState(false)
 
   useEffect(() => {
@@ -30,6 +34,10 @@ export default function PreferencesSync({ children }: { children: ReactNode }) {
       if (prefs?.currentDict && idDictionaryMap[prefs.currentDict]) {
         setCurrentDictId(prefs.currentDict)
         setCurrentChapter(prefs.currentChapter ?? 0)
+      }
+      if (prefs?.speakDict && idDictionaryMap[prefs.speakDict]) {
+        setSpeakDictId(prefs.speakDict)
+        setSpeakChapter(prefs.speakChapter ?? 0)
       }
       setIsLoaded(true)
     })
@@ -43,10 +51,10 @@ export default function PreferencesSync({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!isLoaded) return
     const timer = setTimeout(() => {
-      putJSON('/preferences', { currentDict: currentDictId, currentChapter })
+      putJSON('/preferences', { currentDict: currentDictId, currentChapter, speakDict: speakDictId, speakChapter })
     }, 500)
     return () => clearTimeout(timer)
-  }, [isLoaded, currentDictId, currentChapter])
+  }, [isLoaded, currentDictId, currentChapter, speakDictId, speakChapter])
 
   return isLoaded ? <>{children}</> : <Loading />
 }

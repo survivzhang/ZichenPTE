@@ -27,7 +27,7 @@ export function loadProgress(key: string): PracticeProgress | undefined {
 }
 
 export function saveProgress(key: string, state: TypingState) {
-  const { words, index, wordCount, correctCount, wrongCount, userInputLogs } = state.chapterData
+  const { words, index, wordCount, correctCount, wrongCount, userInputLogs, speakResults } = state.chapterData
   const saved = readAll()
   saved[key] = {
     order: words.map((word) => word.name),
@@ -36,6 +36,7 @@ export function saveProgress(key: string, state: TypingState) {
     correctCount,
     wrongCount,
     userInputLogs,
+    speakResults,
     time: state.timerData.time,
     savedAt: Date.now(),
   }

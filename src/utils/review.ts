@@ -3,6 +3,8 @@ import type { SessionType } from '@/store'
 import type { Word } from '@/typings'
 import useSWR from 'swr'
 
+export type SpeakDetail = { scores: (number | null)[]; phonemes: { phoneme: string | null; score: number }[]; locale: string }
+
 export type ReviewCardData = {
   id: number
   type: SessionType
@@ -13,6 +15,7 @@ export type ReviewCardData = {
   ukphone: string | null
   source: string
   note: string | null
+  detail?: SpeakDetail | null
   due: string
 }
 
@@ -76,6 +79,7 @@ export function cardToWord(card: ReviewCardData): Word {
 
 /** Name of a session, for the practice page. */
 export function sessionLabel(type?: SessionType, mode?: 'review' | 'learn' | 'bank', title?: string) {
+  if (type === 'speak') return mode === 'learn' ? '错音练习' : '错音复习'
   const name = type === 'fib' ? 'FIB 固定搭配' : type === 'wfd' ? 'WFD 拼写' : mode === 'learn' ? '错词练习' : '今日复习'
   if (mode === 'bank') return title ? `${name} · ${title}` : name
   if (type === 'fib' || type === 'wfd') return `${name}错题`

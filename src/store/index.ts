@@ -29,6 +29,50 @@ export const currentDictInfoAtom = atom<Dictionary>((get) => {
 
 export const currentChapterAtom = atomWithStorage('currentChapter', 0)
 
+// ---------------------------------------------------------------------------
+// Two independent practice tracks over the same dictionaries: spelling (typing,
+// the original) and speaking (跟读: reading words aloud, scored by Azure).
+// Each keeps its own dictionary, chapter, records and error bank.
+// ---------------------------------------------------------------------------
+
+export type PracticeMode = 'spell' | 'speak'
+
+export const practiceModeAtom = atomWithStorage<PracticeMode>('practiceMode', 'spell')
+
+export const speakDictIdAtom = atomWithStorage('speakDict', DEFAULT_DICT_ID)
+export const speakChapterAtom = atomWithStorage('speakChapter', 0)
+
+/** Records of the speaking track are filed under `<dict>@speak`, apart from the typing records. */
+export const SPEAK_DICT_SUFFIX = '@speak'
+export const speakDictKey = (dictId: string) => `${dictId}${SPEAK_DICT_SUFFIX}`
+
+/** The dictionary of whichever track the practice page is on. */
+export const activeDictIdAtom = atom(
+  (get) => (get(practiceModeAtom) === 'speak' ? get(speakDictIdAtom) : get(currentDictIdAtom)),
+  (get, set, id: string) => {
+    set(get(practiceModeAtom) === 'speak' ? speakDictIdAtom : currentDictIdAtom, id)
+  },
+)
+
+/** The chapter of whichever track the practice page is on. */
+export const activeChapterAtom = atom(
+  (get) => (get(practiceModeAtom) === 'speak' ? get(speakChapterAtom) : get(currentChapterAtom)),
+  (get, set, update: number | ((prev: number) => number)) => {
+    const target = get(practiceModeAtom) === 'speak' ? speakChapterAtom : currentChapterAtom
+    set(target, typeof update === 'function' ? update(get(target)) : update)
+  },
+)
+
+export const activeDictInfoAtom = atom<Dictionary>((get) => idDictionaryMap[get(activeDictIdAtom)] ?? idDictionaryMap[DEFAULT_DICT_ID])
+
+export type SpeakLocale = 'en-GB' | 'en-US'
+
+/** Pronunciation assessment settings. Words pass at an accuracy of PASS_SCORE or better. */
+export const speakConfigAtom = atomForConfig('speakConfig', {
+  locale: 'en-GB' as SpeakLocale,
+})
+export const SPEAK_PASS_SCORE = 80
+
 export const loopWordConfigAtom = atomForConfig<{ times: LoopWordTimesOption }>('loopWordConfig', {
   times: 1,
 })
@@ -122,11 +166,12 @@ export const hasSeenEnhancedPromotionAtom = atomWithStorage('hasSeenEnhancedProm
 // Records made during the daily review are filed under this pseudo-dictionary.
 export const SRS_REVIEW_DICT = 'srs-review'
 
-export type SessionType = 'word' | 'fib' | 'wfd'
+export type SessionType = 'word' | 'fib' | 'wfd' | 'speak'
 
 /**
  * A session on the practice page that isn't a word-book chapter, kept in memory.
- * - mode review: due review cards (type word = the mandatory daily review; fib/wfd optional)
+ * - mode review: due review cards (type word = the mandatory daily review; speak = mandatory for the
+ *   speaking track; fib/wfd optional)
  * - mode learn: all review cards of a type, practiced outside the schedule
  * - mode bank: a chapter of the user's FIB / WFD question bank (`chapter`, `title`)
  */

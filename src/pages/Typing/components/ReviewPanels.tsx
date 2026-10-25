@@ -1,6 +1,6 @@
 import { CHAPTER_LENGTH } from '@/constants'
-import useStartReview, { useStartBankChapter } from '@/hooks/useStartReview'
-import { currentChapterAtom, currentDictInfoAtom, srsReviewAtom } from '@/store'
+import { useStartBankChapter, useStartSession } from '@/hooks/useStartReview'
+import { activeChapterAtom, activeDictInfoAtom, practiceModeAtom, speakDictKey, srsReviewAtom } from '@/store'
 import { getUTCUnixTimestamp } from '@/utils'
 import { postJSON } from '@/utils/api'
 import { bankChapterTitle, sessionLabel, useBank } from '@/utils/review'
@@ -13,15 +13,18 @@ const panelClass = 'flex max-w-md flex-col items-center rounded-2xl bg-white p-8
 const primaryButtonClass = 'mt-6 rounded-xl bg-indigo-500 px-6 py-3 text-lg font-medium text-white transition hover:bg-indigo-600'
 const secondaryButtonClass = 'mt-3 text-sm text-gray-500 hover:text-indigo-500 dark:text-gray-400'
 
-/** Shown instead of a chapter while today's reviews are not done yet. */
-export function ReviewGate({ dueCount }: { dueCount: number }) {
-  const startReview = useStartReview()
+/** Shown instead of a chapter while today's reviews are not done yet (word cards for typing, speak cards for 跟读). */
+export function ReviewGate({ dueCount, type = 'word' }: { dueCount: number; type?: 'word' | 'speak' }) {
+  const startSession = useStartSession()
   const navigate = useNavigate()
+  const isSpeak = type === 'speak'
   return (
     <div className={panelClass}>
-      <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-100">先完成今天的复习</h2>
-      <p className="mt-2 text-gray-500 dark:text-gray-400">今天还有 {dueCount} 个错词要复习，完成后才能学习新内容。</p>
-      <button type="button" autoFocus onClick={startReview} className={primaryButtonClass}>
+      <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-100">先完成今天的{isSpeak ? '错音' : ''}复习</h2>
+      <p className="mt-2 text-gray-500 dark:text-gray-400">
+        今天还有 {dueCount} 个{isSpeak ? '读错的词' : '错词'}要复习，完成后才能{isSpeak ? '跟读新章节' : '学习新内容'}。
+      </p>
+      <button type="button" autoFocus onClick={() => startSession(type, 'review')} className={primaryButtonClass}>
         开始复习 · {dueCount} 词
       </button>
       <button type="button" onClick={() => navigate('/')} className={secondaryButtonClass}>
@@ -33,14 +36,15 @@ export function ReviewGate({ dueCount }: { dueCount: number }) {
 
 /** Every word of the chapter was already practiced in another PTE dictionary. */
 export function ChapterSkippedPanel() {
-  const dict = useAtomValue(currentDictInfoAtom)
-  const [chapter, setChapter] = useAtom(currentChapterAtom)
+  const dict = useAtomValue(activeDictInfoAtom)
+  const [chapter, setChapter] = useAtom(activeChapterAtom)
+  const isSpeak = useAtomValue(practiceModeAtom) === 'speak'
   const isLastChapter = chapter + 1 >= dict.chapterCount
 
   // Count the chapter as done so the home page moves on past it.
   useEffect(() => {
     postJSON('/records/chapters', {
-      dict: dict.id,
+      dict: isSpeak ? speakDictKey(dict.id) : dict.id,
       chapter,
       time: 0,
       correctCount: 0,
@@ -50,12 +54,14 @@ export function ChapterSkippedPanel() {
       wordNumber: CHAPTER_LENGTH,
       timeStamp: getUTCUnixTimestamp(),
     })
-  }, [dict.id, chapter])
+  }, [dict.id, chapter, isSpeak])
 
   return (
     <div className={panelClass}>
-      <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-100">这一章已经学过了</h2>
-      <p className="mt-2 text-gray-500 dark:text-gray-400">第 {chapter + 1} 章的单词都在其他 PTE 词典里练过，已自动跳过。</p>
+      <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-100">这一章已经{isSpeak ? '读' : '学'}过了</h2>
+      <p className="mt-2 text-gray-500 dark:text-gray-400">
+        第 {chapter + 1} 章的单词都在其他 PTE 词典里{isSpeak ? '读' : '练'}过，已自动跳过。
+      </p>
       {!isLastChapter && (
         <button type="button" autoFocus onClick={() => setChapter(chapter + 1)} className={primaryButtonClass}>
           下一章 · 第 {chapter + 2} 章
@@ -103,6 +109,8 @@ export function ReviewDoneScreen({ total, firstTryCorrect }: { total: number; fi
         <p className="mt-1 text-sm text-gray-400">
           {isBank
             ? `第一遍错的${unit}已加入${session.type === 'fib' ? ' FIB' : ' WFD'} 错题，可在「练习中错题」里复习。`
+            : session.type === 'speak'
+            ? '读错的明天会再出现，读对的间隔会越来越长。'
             : '错的明天会再出现，对的间隔会越来越长。'}
         </p>
         {nextChapter ? (

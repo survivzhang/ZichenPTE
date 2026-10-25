@@ -3,7 +3,7 @@ import type { WordWithIndex } from '@/typings'
 import { flip, offset, shift, useFloating, useHover, useInteractions, useRole } from '@floating-ui/react'
 import { useCallback, useState } from 'react'
 
-export default function WordChip({ word }: { word: WordWithIndex }) {
+export default function WordChip({ word, badge }: { word: WordWithIndex; badge?: string }) {
   const [showTranslation, setShowTranslation] = useState(false)
   const { x, y, strategy, refs, context } = useFloating({
     open: showTranslation,
@@ -31,6 +31,7 @@ export default function WordChip({ word }: { word: WordWithIndex }) {
         title={`朗读 ${word.name}`}
       >
         <span>{word.name}</span>
+        {badge && <span className="ml-1.5 text-xs text-red-500">{badge}</span>}
       </button>
       {showTranslation && (
         <div

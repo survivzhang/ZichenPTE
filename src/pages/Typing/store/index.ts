@@ -1,4 +1,4 @@
-import type { PracticeProgress, TypingState, UserInputLog } from './type'
+import type { PracticeProgress, SpeakWordResult, TypingState, UserInputLog } from './type'
 import type { WordWithIndex } from '@/typings'
 import type { LetterMistakes } from '@/utils/db/record'
 import { mergeLetterMistake } from '@/utils/db/utils'
@@ -13,6 +13,7 @@ export const initialState: TypingState = {
     correctCount: 0,
     wrongCount: 0,
     userInputLogs: [],
+    speakResults: {},
   },
   timerData: {
     time: 0,
@@ -25,6 +26,7 @@ export const initialState: TypingState = {
   isTransVisible: true,
   isLoopSingleWord: false,
   isSavingRecord: false,
+  isRetryPass: false,
 }
 
 export const initialUserInputLog: UserInputLog = {
@@ -56,6 +58,8 @@ export enum TypingStateActionType {
   SET_IS_LOOP_SINGLE_WORD = 'SET_IS_LOOP_SINGLE_WORD',
   TOGGLE_IS_LOOP_SINGLE_WORD = 'TOGGLE_IS_LOOP_SINGLE_WORD',
   SET_REVISION_INDEX = 'SET_REVISION_INDEX',
+  REPORT_SPEAK_RESULT = 'REPORT_SPEAK_RESULT',
+  RETRY_WRONG_WORDS = 'RETRY_WRONG_WORDS',
 }
 
 export type TypingStateAction =
@@ -80,6 +84,8 @@ export type TypingStateAction =
   | { type: TypingStateActionType.SET_IS_SAVING_RECORD; payload: boolean }
   | { type: TypingStateActionType.SET_IS_LOOP_SINGLE_WORD; payload: boolean }
   | { type: TypingStateActionType.TOGGLE_IS_LOOP_SINGLE_WORD }
+  | { type: TypingStateActionType.REPORT_SPEAK_RESULT; payload: { index: number; result: SpeakWordResult } }
+  | { type: TypingStateActionType.RETRY_WRONG_WORDS }
 
 type Dispatch = (action: TypingStateAction) => void
 
@@ -112,6 +118,7 @@ export const typingReducer = (state: TypingState, action: TypingStateAction) => 
           correctCount: progress.correctCount,
           wrongCount: progress.wrongCount,
           userInputLogs: progress.userInputLogs,
+          speakResults: progress.speakResults ?? {},
         }
         newState.timerData.time = progress.time
         return newState
@@ -231,6 +238,25 @@ export const typingReducer = (state: TypingState, action: TypingStateAction) => 
     case TypingStateActionType.TOGGLE_IS_LOOP_SINGLE_WORD: {
       state.isLoopSingleWord = !state.isLoopSingleWord
       break
+    }
+    case TypingStateActionType.REPORT_SPEAK_RESULT: {
+      state.chapterData.speakResults[action.payload.index] = action.payload.result
+      break
+    }
+    // Speaking track: read the chapter's mispronounced words again, as a pass of their own.
+    case TypingStateActionType.RETRY_WRONG_WORDS: {
+      const wrongWords = state.chapterData.userInputLogs
+        .filter((log) => log.wrongCount > 0)
+        .map((log) => state.chapterData.words[log.index])
+        .filter((word) => word !== undefined)
+      if (wrongWords.length === 0) return state
+      const newState = structuredClone(initialState)
+      newState.chapterData.words = wrongWords
+      newState.chapterData.userInputLogs = wrongWords.map((_, index) => ({ ...structuredClone(initialUserInputLog), index }))
+      newState.isTyping = true
+      newState.isRetryPass = true
+      newState.isTransVisible = state.isTransVisible
+      return newState
     }
     default: {
       return state

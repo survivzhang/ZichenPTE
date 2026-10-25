@@ -15,8 +15,8 @@ import useKeySounds from '@/hooks/useKeySounds'
 import useSentenceAudio from '@/hooks/useSentenceAudio'
 import { TypingContext, TypingStateActionType } from '@/pages/Typing/store'
 import {
-  currentChapterAtom,
-  currentDictInfoAtom,
+  activeChapterAtom,
+  activeDictInfoAtom,
   hintUnlockedAtom,
   isIgnoreCaseAtom,
   isTextSelectableAtom,
@@ -41,9 +41,9 @@ export default function WordComponent({ word, onFinish }: { word: Word; onFinish
   const [playKeySound, playBeepSound, playHintSound] = useKeySounds()
   const pronunciationIsOpen = useAtomValue(pronunciationIsOpenAtom)
   const [isHoveringWord, setIsHoveringWord] = useState(false)
-  const currentLanguage = useAtomValue(currentDictInfoAtom).language
-  const currentLanguageCategory = useAtomValue(currentDictInfoAtom).languageCategory
-  const currentChapter = useAtomValue(currentChapterAtom)
+  const currentLanguage = useAtomValue(activeDictInfoAtom).language
+  const currentLanguageCategory = useAtomValue(activeDictInfoAtom).languageCategory
+  const currentChapter = useAtomValue(activeChapterAtom)
 
   const [showTipAlert, setShowTipAlert] = useState(false)
   const wordPronunciationIconRef = useRef<WordPronunciationIconRef>(null)

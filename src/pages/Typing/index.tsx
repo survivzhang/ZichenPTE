@@ -3,6 +3,8 @@ import { DictChapterButton } from './components/DictChapterButton'
 import PronunciationSwitcher from './components/PronunciationSwitcher'
 import ResultScreen from './components/ResultScreen'
 import { ChapterSkippedPanel, ReviewDoneScreen, ReviewGate } from './components/ReviewPanels'
+import SpeakLocaleSwitcher from './components/SpeakLocaleSwitcher'
+import SpeakPanel, { SpeakStats } from './components/SpeakPanel'
 import Speed from './components/Speed'
 import StartButton from './components/StartButton'
 import Switcher from './components/Switcher'
@@ -15,9 +17,9 @@ import { clearProgress, loadProgress, saveProgress } from './store/progress'
 import Header from '@/components/Header'
 import Tooltip from '@/components/Tooltip'
 import { idDictionaryMap } from '@/resources/dictionary'
-import { DEFAULT_DICT_ID, currentChapterAtom, currentDictIdAtom, randomConfigAtom, srsReviewAtom } from '@/store'
+import { DEFAULT_DICT_ID, activeChapterAtom, activeDictIdAtom, randomConfigAtom, srsReviewAtom } from '@/store'
 import { isLegal } from '@/utils'
-import { useSaveChapterRecord } from '@/utils/db'
+import { useIsSpeakTrack, useSaveChapterRecord } from '@/utils/db'
 import { useDueReviews } from '@/utils/review'
 import { useAtom, useAtomValue } from 'jotai'
 import type React from 'react'
@@ -29,19 +31,22 @@ const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState<boolean>(true)
   const { words, isChapterAllSkipped } = useWordList()
   const srsReview = useAtomValue(srsReviewAtom)
-  // Learning new words is locked until today's reviews are done.
-  const { count: dueCount } = useDueReviews()
+  // The speaking track (跟读) scores words read aloud instead of typed.
+  const isSpeak = useIsSpeakTrack()
+  // Learning new words is locked until today's reviews are done: word cards for typing, speak cards for 跟读.
+  const gateType = isSpeak ? 'speak' : 'word'
+  const { count: dueCount } = useDueReviews(gateType)
   // Bank chapters are new material too, so they wait for the daily review like word books do.
   const isGated = (!srsReview.active || srsReview.mode === 'bank') && (dueCount ?? 0) > 0
 
-  const [currentDictId, setCurrentDictId] = useAtom(currentDictIdAtom)
-  const [currentChapter, setCurrentChapter] = useAtom(currentChapterAtom)
+  const [currentDictId, setCurrentDictId] = useAtom(activeDictIdAtom)
+  const [currentChapter, setCurrentChapter] = useAtom(activeChapterAtom)
   const randomConfig = useAtomValue(randomConfigAtom)
   const saveChapterRecord = useSaveChapterRecord()
   // Which chapter or session this is, for resuming it after leaving the page.
   const progressKey = srsReview.active
     ? `${srsReview.type}:${srsReview.mode}:${srsReview.chapter ?? ''}`
-    : `${currentDictId}:${currentChapter}`
+    : `${isSpeak ? 'speak:' : ''}${currentDictId}:${currentChapter}`
 
   // 在组件挂载和currentDictId改变时，检查当前字典是否存在，如果不存在，则将其重置为默认值
   useEffect(() => {
@@ -87,7 +92,9 @@ const App: React.FC = () => {
   useEffect(() => {
     if (!state.isTyping) {
       const onKeyDown = (e: KeyboardEvent) => {
-        if (!isLoading && !isGated && e.key !== 'Enter' && (isLegal(e.key) || e.key === ' ') && !e.altKey && !e.ctrlKey && !e.metaKey) {
+        // 跟读 starts with the space bar only; letters are shortcuts there
+        const starts = isSpeak ? e.key === ' ' : e.key !== 'Enter' && (isLegal(e.key) || e.key === ' ')
+        if (!isLoading && !isGated && starts && !e.altKey && !e.ctrlKey && !e.metaKey) {
           e.preventDefault()
           dispatch({ type: TypingStateActionType.SET_IS_TYPING, payload: true })
         }
@@ -96,7 +103,7 @@ const App: React.FC = () => {
 
       return () => window.removeEventListener('keydown', onKeyDown)
     }
-  }, [state.isTyping, isLoading, isGated, dispatch])
+  }, [state.isTyping, isLoading, isGated, isSpeak, dispatch])
 
   useEffect(() => {
     if (words !== undefined) {
@@ -152,25 +159,27 @@ const App: React.FC = () => {
       <Layout>
         <Header>
           <DictChapterButton />
-          <PronunciationSwitcher />
-          <Switcher />
-          <StartButton isLoading={isLoading || isGated} />
-          <Tooltip content="跳过该词">
-            <button
-              className={`${
-                state.isShowSkip ? 'bg-orange-400' : 'invisible w-0 bg-gray-300 px-0 opacity-0'
-              } my-btn-primary transition-all duration-300 `}
-              onClick={skipWord}
-            >
-              Skip
-            </button>
-          </Tooltip>
+          {isSpeak ? <SpeakLocaleSwitcher /> : <PronunciationSwitcher />}
+          <Switcher speak={isSpeak} />
+          <StartButton isLoading={isLoading || isGated} enterToggles={!isSpeak} />
+          {!isSpeak && (
+            <Tooltip content="跳过该词">
+              <button
+                className={`${
+                  state.isShowSkip ? 'bg-orange-400' : 'invisible w-0 bg-gray-300 px-0 opacity-0'
+                } my-btn-primary transition-all duration-300 `}
+                onClick={skipWord}
+              >
+                Skip
+              </button>
+            </Tooltip>
+          )}
         </Header>
         <div className="container mx-auto flex h-full flex-1 flex-col items-center justify-center pb-5">
           <div className="container relative mx-auto flex h-full flex-col items-center">
             <div className="container flex flex-grow items-center justify-center">
               {isGated ? (
-                <ReviewGate dueCount={dueCount ?? 0} />
+                <ReviewGate dueCount={dueCount ?? 0} type={gateType} />
               ) : isChapterAllSkipped ? (
                 <ChapterSkippedPanel />
               ) : isLoading ? (
@@ -181,10 +190,10 @@ const App: React.FC = () => {
                   ></div>
                 </div>
               ) : (
-                !state.isFinished && <WordPanel />
+                !state.isFinished && (isSpeak ? <SpeakPanel /> : <WordPanel />)
               )}
             </div>
-            <Speed />
+            {isSpeak ? <SpeakStats /> : <Speed />}
           </div>
         </div>
       </Layout>

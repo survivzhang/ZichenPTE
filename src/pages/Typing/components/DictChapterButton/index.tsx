@@ -1,6 +1,6 @@
 import Tooltip from '@/components/Tooltip'
 import { isPteDict } from '@/resources/pte'
-import { currentChapterAtom, currentDictInfoAtom, srsReviewAtom } from '@/store'
+import { activeChapterAtom, activeDictInfoAtom, practiceModeAtom, srsReviewAtom } from '@/store'
 import range from '@/utils/range'
 import { sessionLabel } from '@/utils/review'
 import { Listbox, Transition } from '@headlessui/react'
@@ -10,10 +10,11 @@ import { NavLink } from 'react-router-dom'
 import IconCheck from '~icons/tabler/check'
 
 export const DictChapterButton = () => {
-  const currentDictInfo = useAtomValue(currentDictInfoAtom)
-  const [currentChapter, setCurrentChapter] = useAtom(currentChapterAtom)
+  const currentDictInfo = useAtomValue(activeDictInfoAtom)
+  const [currentChapter, setCurrentChapter] = useAtom(activeChapterAtom)
   const chapterCount = currentDictInfo.chapterCount
   const srsReview = useAtomValue(srsReviewAtom)
+  const isSpeak = useAtomValue(practiceModeAtom) === 'speak'
 
   const handleKeyDown: React.KeyboardEventHandler<HTMLButtonElement> = (event) => {
     if (event.key === ' ') {
@@ -24,13 +25,14 @@ export const DictChapterButton = () => {
     return (
       <span className="px-3 py-1 text-lg text-indigo-500 dark:text-indigo-300">
         {sessionLabel(srsReview.type, srsReview.mode, srsReview.title)} · {srsReview.words.length}{' '}
-        {srsReview.type === 'word' || !srsReview.type ? '词' : '句'}
+        {srsReview.type === 'fib' || srsReview.type === 'wfd' ? '句' : '词'}
       </span>
     )
   }
 
   return (
     <>
+      {isSpeak && <span className="rounded-md bg-indigo-500 px-2 py-0.5 text-sm font-medium text-white">跟读</span>}
       <Tooltip content="词典切换">
         <NavLink
           className="block rounded-lg px-3 py-1 text-lg transition-colors duration-300 ease-in-out hover:bg-indigo-400 hover:text-white focus:outline-none dark:text-white dark:text-opacity-60 dark:hover:text-opacity-100"

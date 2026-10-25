@@ -43,6 +43,13 @@
       "when": 1792492195842,
       "tag": "0005_nostalgic_captain_britain",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1792942144342,
+      "tag": "0006_skinny_queen_noir",
+      "breakpoints": true
     }
   ]
 }

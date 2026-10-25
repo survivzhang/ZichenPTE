@@ -74,6 +74,38 @@ function SectionCard({ type, title, description, unit }: (typeof SECTIONS)[numbe
   )
 }
 
+function SpeakErrorsCard() {
+  const cards = useCards('speak')
+  const startSession = useStartSession()
+  const navigate = useNavigate()
+  return (
+    <section className="flex flex-col rounded-2xl bg-white p-6 shadow-sm dark:bg-gray-800">
+      <h3 className="text-xl font-semibold text-indigo-500">错音库</h3>
+      <p className="mt-2 flex-1 text-sm text-gray-500 dark:text-gray-400">
+        跟读时第一遍没及格的词。到期的在上面「错音复习」里，这里可以随时全部再读一遍。
+      </p>
+      <p className="mt-4 text-gray-700 dark:text-gray-200">共 {cards?.length ?? '…'} 词</p>
+      <div className="mt-4 flex flex-wrap gap-2">
+        <button
+          type="button"
+          disabled={!cards?.length}
+          onClick={() => startSession('speak', 'learn')}
+          className="rounded-xl bg-indigo-50 px-4 py-2 font-medium text-indigo-600 transition hover:bg-indigo-100 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-gray-700 dark:text-indigo-300"
+        >
+          全部跟读
+        </button>
+        <button
+          type="button"
+          onClick={() => navigate('/error-book?type=speak')}
+          className="rounded-xl px-3 py-2 text-sm text-gray-500 hover:text-indigo-500 dark:text-gray-400"
+        >
+          查看列表
+        </button>
+      </div>
+    </section>
+  )
+}
+
 function ErrorWordsCard() {
   const cards = useCards('word')
   const navigate = useNavigate()
@@ -108,6 +140,7 @@ export default function PracticeMistakes() {
         <SectionCard key={section.type} {...section} />
       ))}
       <ErrorWordsCard />
+      <SpeakErrorsCard />
     </div>
   )
 }

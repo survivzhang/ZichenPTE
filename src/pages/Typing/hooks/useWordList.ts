@@ -1,6 +1,6 @@
 import { CHAPTER_LENGTH } from '@/constants'
 import { isPteDict, pteDictIds } from '@/resources/pte'
-import { currentChapterAtom, currentDictInfoAtom, srsReviewAtom } from '@/store'
+import { activeChapterAtom, activeDictInfoAtom, practiceModeAtom, speakDictKey, srsReviewAtom } from '@/store'
 import type { Word, WordWithIndex } from '@/typings/index'
 import { getJSON } from '@/utils/api'
 import { wordListFetcher } from '@/utils/wordListFetcher'
@@ -22,14 +22,18 @@ const fetchPracticedWords = async (key: string) => new Set((await getJSON<{ word
  * Use word lists from the current selected dictionary.
  */
 export function useWordList(): UseWordListResult {
-  const currentDictInfo = useAtomValue(currentDictInfoAtom)
-  const [currentChapter, setCurrentChapter] = useAtom(currentChapterAtom)
+  const currentDictInfo = useAtomValue(activeDictInfoAtom)
+  const [currentChapter, setCurrentChapter] = useAtom(activeChapterAtom)
   const srsReview = useAtomValue(srsReviewAtom)
+  const isSpeak = useAtomValue(practiceModeAtom) === 'speak'
 
-  // PTE dictionaries share words: skip ones already practiced in another PTE dictionary.
+  // PTE dictionaries share words: skip ones already practiced in another PTE dictionary
+  // (on the same track: words typed elsewhere don't skip reading them aloud).
   const otherPteDicts = !srsReview.active && isPteDict(currentDictInfo) ? pteDictIds.filter((id) => id !== currentDictInfo.id) : []
   const { data: practicedElsewhere } = useSWR(
-    otherPteDicts.length ? `/words/practiced?dicts=${otherPteDicts.join(',')}` : null,
+    otherPteDicts.length
+      ? `/words/practiced?dicts=${(isSpeak ? otherPteDicts.map(speakDictKey) : otherPteDicts).join(',')}${isSpeak ? '&mode=speak' : ''}`
+      : null,
     fetchPracticedWords,
     { revalidateOnFocus: false },
   )

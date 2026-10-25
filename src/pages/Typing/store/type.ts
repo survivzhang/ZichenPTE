@@ -1,5 +1,20 @@
 import type { WordWithIndex } from '@/typings'
 import type { LetterMistakes } from '@/utils/db/record'
+import type { ScoredPhoneme } from '@/utils/speech/ipa'
+
+/** How a word went in the speaking track (跟读), kept per word of the chapter. */
+export type SpeakWordResult = {
+  // the attempt that counts
+  firstScore: number | null
+  firstPassed: boolean
+  // the latest attempt
+  lastScore: number | null
+  passed: boolean
+  phonemes: ScoredPhoneme[]
+  // scored by hand because Azure was unavailable
+  manual: boolean
+  attempts: number
+}
 
 export type ChapterData = {
   // warning: 因为有章节内随机的存在，所有记录 index 的场景都应该使用 WordWithIndex.index
@@ -14,7 +29,8 @@ export type ChapterData = {
   wrongCount: number
   // 每个单词的输入记录
   userInputLogs: UserInputLog[]
-  // 本章节用户输入的单词的 record id 列表
+  // speaking track: results by index in `words`
+  speakResults: Record<number, SpeakWordResult>
 }
 
 export type UserInputLog = {
@@ -34,6 +50,7 @@ export type PracticeProgress = {
   correctCount: number
   wrongCount: number
   userInputLogs: UserInputLog[]
+  speakResults?: Record<number, SpeakWordResult>
   time: number
 }
 
@@ -62,4 +79,6 @@ export type TypingState = {
   isLoopSingleWord: boolean
   // 是否正在保存数据
   isSavingRecord: boolean
+  // speaking track: re-reading only the chapter's mispronounced words; no chapter record is saved
+  isRetryPass: boolean
 }
