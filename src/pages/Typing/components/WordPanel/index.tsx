@@ -23,15 +23,6 @@ export default function WordPanel() {
   const currentWord = state.chapterData.words[state.chapterData.index]
   const nextWord = state.chapterData.words[state.chapterData.index + 1] as Word | undefined
 
-  const prevIndex = useMemo(() => {
-    const newIndex = state.chapterData.index - 1
-    return newIndex < 0 ? 0 : newIndex
-  }, [state.chapterData.index])
-  const nextIndex = useMemo(() => {
-    const newIndex = state.chapterData.index + 1
-    return newIndex > state.chapterData.words.length - 1 ? state.chapterData.words.length - 1 : newIndex
-  }, [state.chapterData.index, state.chapterData.words.length])
-
   // Sentences (FIB / WFD) use their own audio, not the word pronunciation service.
   usePrefetchPronunciationSound(nextWord && !nextWord.kind ? nextWord.name : undefined)
 
@@ -63,36 +54,6 @@ export default function WordPanel() {
     reloadCurrentWordComponent,
   ])
 
-  const onSkipWord = useCallback(
-    (type: 'prev' | 'next') => {
-      if (type === 'prev') {
-        dispatch({ type: TypingStateActionType.SKIP_2_WORD_INDEX, newIndex: prevIndex })
-      }
-
-      if (type === 'next') {
-        dispatch({ type: TypingStateActionType.SKIP_2_WORD_INDEX, newIndex: nextIndex })
-      }
-    },
-    [dispatch, prevIndex, nextIndex],
-  )
-
-  useHotkeys(
-    'Ctrl + Shift + ArrowLeft',
-    (e) => {
-      e.preventDefault()
-      onSkipWord('prev')
-    },
-    { preventDefault: true },
-  )
-
-  useHotkeys(
-    'Ctrl + Shift + ArrowRight',
-    (e) => {
-      e.preventDefault()
-      onSkipWord('next')
-    },
-    { preventDefault: true },
-  )
   const [isShowTranslation, setIsHoveringTranslation] = useState(false)
 
   const handleShowTranslation = useCallback((checked: boolean) => {

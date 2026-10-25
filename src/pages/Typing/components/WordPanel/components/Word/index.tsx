@@ -280,12 +280,6 @@ export default function WordComponent({ word, onFinish }: { word: Word; onFinish
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [wordState.isFinished])
 
-  useEffect(() => {
-    if (wordState.wrongCount >= 4) {
-      dispatch({ type: TypingStateActionType.SET_IS_SKIP, payload: true })
-    }
-  }, [wordState.wrongCount, dispatch])
-
   return (
     <>
       <InputHandler updateInput={updateInput} />

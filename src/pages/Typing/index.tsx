@@ -15,7 +15,6 @@ import { useWordList } from './hooks/useWordList'
 import { TypingContext, TypingStateActionType, initialState, typingReducer } from './store'
 import { clearProgress, loadProgress, saveProgress } from './store/progress'
 import Header from '@/components/Header'
-import Tooltip from '@/components/Tooltip'
 import { idDictionaryMap } from '@/resources/dictionary'
 import { DEFAULT_DICT_ID, activeChapterAtom, activeDictIdAtom, randomConfigAtom, srsReviewAtom } from '@/store'
 import { isLegal } from '@/utils'
@@ -23,7 +22,7 @@ import { useIsSpeakTrack, useSaveChapterRecord } from '@/utils/db'
 import { useDueReviews } from '@/utils/review'
 import { useAtom, useAtomValue } from 'jotai'
 import type React from 'react'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useImmerReducer } from 'use-immer'
 
 const App: React.FC = () => {
@@ -57,10 +56,6 @@ const App: React.FC = () => {
       return
     }
   }, [currentDictId, setCurrentChapter, setCurrentDictId])
-
-  const skipWord = useCallback(() => {
-    dispatch({ type: TypingStateActionType.SKIP_WORD })
-  }, [dispatch])
 
   // Leaving the window (another app, a screenshot) pauses the timer; coming back resumes it,
   // unless practice was already paused before leaving.
@@ -162,18 +157,6 @@ const App: React.FC = () => {
           {isSpeak ? <SpeakLocaleSwitcher /> : <PronunciationSwitcher />}
           <Switcher speak={isSpeak} />
           <StartButton isLoading={isLoading || isGated} enterToggles={!isSpeak} />
-          {!isSpeak && (
-            <Tooltip content="跳过该词">
-              <button
-                className={`${
-                  state.isShowSkip ? 'bg-orange-400' : 'invisible w-0 bg-gray-300 px-0 opacity-0'
-                } my-btn-primary transition-all duration-300 `}
-                onClick={skipWord}
-              >
-                Skip
-              </button>
-            </Tooltip>
-          )}
         </Header>
         <div className="container mx-auto flex h-full flex-1 flex-col items-center justify-center pb-5">
           <div className="container relative mx-auto flex h-full flex-col items-center">

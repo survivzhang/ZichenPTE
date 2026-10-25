@@ -275,18 +275,6 @@ function SpeakWord({
     startListening()
   }, [micError, phase.kind, startListening, state.isTyping, mic])
 
-  const next = useCallback(() => {
-    if (!state.isTyping || phase.kind === 'manual') return
-    cancelAutoAdvance()
-    stopListening()
-    // Moving on without having read the word counts as not knowing it.
-    if (attemptsRef.current === 0) {
-      finishAttempt({ score: null, passed: false, manual: false, phonemes: [] })
-      cancelAutoAdvance()
-    }
-    onFinish()
-  }, [finishAttempt, onFinish, phase.kind, state.isTyping, stopListening])
-
   const markByHand = useCallback(
     (passed: boolean) => {
       if (phase.kind !== 'manual' || markedRef.current) return
@@ -302,8 +290,9 @@ function SpeakWord({
     if (recordingUrl) new Audio(recordingUrl).play().catch(() => undefined)
   }, [recordingUrl])
 
+  // A word is never skipped: it is read again until it passes, then moves on by itself.
   useHotkeys('space', retry, { preventDefault: true }, [retry])
-  useHotkeys('enter', next, { preventDefault: true }, [next])
+  useHotkeys('enter', retry, { preventDefault: true }, [retry])
   useHotkeys('p', playNative, { preventDefault: true }, [playNative])
   useHotkeys('r', playRecording, { preventDefault: true }, [playRecording])
   useHotkeys('y', () => markByHand(true), { preventDefault: true }, [markByHand])
@@ -390,10 +379,10 @@ function SpeakWord({
           </p>
         )}
 
-        {(phase.kind === 'scored' || phase.kind === 'manual-done') && (
+        {((phase.kind === 'scored' && !phase.assessment.passed) || (phase.kind === 'manual-done' && !phase.passed)) && (
           <div className="mt-1 flex flex-wrap justify-center gap-2">
-            <button type="button" className={buttonClass} onClick={retry}>
-              <IconRefresh className="h-4 w-4" /> 重读 <kbd className="text-xs text-gray-400">空格</kbd>
+            <button type="button" className={`${buttonClass} border-indigo-400 text-indigo-600`} onClick={retry}>
+              <IconRefresh className="h-4 w-4" /> 再读一遍 <kbd className="text-xs text-gray-400">空格</kbd>
             </button>
             <button type="button" className={buttonClass} onClick={playNative}>
               <IconVolume className="h-4 w-4" /> 原声 <kbd className="text-xs text-gray-400">P</kbd>
@@ -403,9 +392,6 @@ function SpeakWord({
                 <IconPlayerPlay className="h-4 w-4" /> 我的录音 <kbd className="text-xs text-gray-400">R</kbd>
               </button>
             )}
-            <button type="button" className={`${buttonClass} border-indigo-400 text-indigo-600`} onClick={next}>
-              下一个 <kbd className="text-xs text-gray-400">Enter</kbd>
-            </button>
           </div>
         )}
       </div>
