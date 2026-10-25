@@ -67,9 +67,21 @@ export const activeDictInfoAtom = atom<Dictionary>((get) => idDictionaryMap[get(
 
 export type SpeakLocale = 'en-GB' | 'en-US'
 
+// American English became the scoring default on 2026-10-26: Azure's en-GB model
+// returns unreliable phoneme scores and no phoneme names. Saved settings switch once.
+try {
+  if (!localStorage.getItem('speakAmericanDefaultApplied')) {
+    const saved = localStorage.getItem('speakConfig')
+    if (saved) localStorage.setItem('speakConfig', JSON.stringify({ ...JSON.parse(saved), locale: 'en-US' }))
+    localStorage.setItem('speakAmericanDefaultApplied', '1')
+  }
+} catch {
+  // storage unavailable or malformed; defaults apply
+}
+
 /** Pronunciation assessment settings. Words pass at an accuracy of PASS_SCORE or better. */
 export const speakConfigAtom = atomForConfig('speakConfig', {
-  locale: 'en-GB' as SpeakLocale,
+  locale: 'en-US' as SpeakLocale,
 })
 export const SPEAK_PASS_SCORE = 80
 
