@@ -8,7 +8,7 @@ import useWordAudio from './useWordAudio'
 import { SPEAK_PASS_SCORE, fontSizeConfigAtom, isTextSelectableAtom, speakConfigAtom } from '@/store'
 import type { WordWithIndex } from '@/typings'
 import { useSaveSpeakRecord } from '@/utils/db'
-import type { Assessment, AssessmentHandle } from '@/utils/speech/azure'
+import type { Assessment, AssessmentHandle, Diagnostics } from '@/utils/speech/azure'
 import { assessSpeech, openMicrophone } from '@/utils/speech/azure'
 import { labelPhonemes } from '@/utils/speech/ipa'
 import type { ScoredPhoneme } from '@/utils/speech/ipa'
@@ -95,8 +95,9 @@ function SpeakWord({
   const attemptsRef = useRef(previous?.attempts ?? 0)
   const [phase, setPhase] = useState<Phase>(() => (micError ? { kind: 'manual', message: micError } : { kind: 'idle' }))
   const [recordingUrl, setRecordingUrl] = useState<string | null>(null)
-  // consecutive times Azure heard nothing, to hint at a wrong microphone
+  // consecutive times Azure heard nothing, to hint at a wrong microphone, and what the last attempt saw
   const [silences, setSilences] = useState(0)
+  const [diagnostics, setDiagnostics] = useState<Diagnostics | null>(null)
 
   const handleRef = useRef<AssessmentHandle | null>(null)
   // set once the word has been marked by hand, so a second Y / N before re-render can't record twice
@@ -196,10 +197,12 @@ function SpeakWord({
         if (recorder && recorder.state !== 'inactive') recorder.stop()
         if (assessment.kind === 'silence') {
           setSilences((n) => n + 1)
+          setDiagnostics(assessment.diagnostics)
           setPhase({ kind: 'silence' })
           return
         }
         setSilences(0)
+        setDiagnostics(null)
         const phonemes = labelPhonemes(assessment.phonemes, ipa) as (ScoredPhoneme & { spoken?: string })[]
         setPhase({ kind: 'scored', assessment, phonemes })
         finishAttempt({
@@ -345,6 +348,12 @@ function SpeakWord({
         {silences >= 2 && (phase.kind === 'listening' || phase.kind === 'silence') && (
           <p className="max-w-md text-center text-sm text-amber-600">
             连续没收到声音。说话时上面的音量条应该会动；如果不动，点地址栏左边的图标检查浏览器选的是哪个麦克风，然后刷新页面。
+          </p>
+        )}
+        {silences >= 1 && diagnostics && (phase.kind === 'listening' || phase.kind === 'silence') && (
+          <p className="max-w-lg select-text text-center font-mono text-xs text-gray-400">
+            上次：音频 {diagnostics.audioSeconds.toFixed(1)}s · 峰值 {Math.round(diagnostics.peak * 100)}% ·{' '}
+            {diagnostics.events.join(' → ')}
           </p>
         )}
         {phase.kind === 'idle' && state.isTyping && <p className="text-gray-400">正在打开麦克风…</p>}

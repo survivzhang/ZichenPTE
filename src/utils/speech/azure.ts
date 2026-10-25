@@ -20,7 +20,7 @@ export type AssessedWord = {
 
 export type Assessment =
   // nothing was said before the timeout
-  | { kind: 'silence' }
+  | { kind: 'silence'; diagnostics: Diagnostics }
   | {
       kind: 'scored'
       // what Azure heard
@@ -108,7 +108,16 @@ export type AssessmentHandle = { result: Promise<Assessment>; cancel: () => void
 // so the practice never hangs on "listening".
 const RECOGNITION_TIMEOUT_MS = 20_000
 
-const log = (...args: unknown[]) => console.info('[speak]', ...args)
+const log = (...args: unknown[]) => console.log('[speak]', ...args)
+
+/** What happened during one recognition, shown on screen when Azure hears nothing. */
+export type Diagnostics = {
+  // seconds of audio pushed to the SDK and the loudest sample (0-1) in it
+  audioSeconds: number
+  peak: number
+  // SDK events in order, e.g. "session", "speech-start", "no-match:InitialSilenceTimeout"
+  events: string[]
+}
 
 /**
  * Listen on the microphone for one utterance of `referenceText` and score it.
@@ -120,10 +129,18 @@ export function assessSpeech(mic: MicCapture, referenceText: string, locale: Spe
   let cancelled = false
   let close: (() => void) | null = null
 
+  const diagnostics: Diagnostics = { audioSeconds: 0, peak: 0, events: [] }
+  const silence = (): Assessment => ({ kind: 'silence', diagnostics })
+  const note = (event: string) => {
+    diagnostics.events.push(event)
+    log(event)
+  }
+
   const result = (async (): Promise<Assessment> => {
     const [sdk, token] = await Promise.all([loadSdk(), getToken()])
-    if (cancelled) return { kind: 'silence' }
+    if (cancelled) return silence()
     mic.resume()
+    note(`mic ${mic.context.state} @${mic.context.sampleRate}Hz`)
 
     const speechConfig = sdk.SpeechConfig.fromAuthorizationToken(token.token, token.region)
     speechConfig.speechRecognitionLanguage = locale
@@ -133,13 +150,20 @@ export function assessSpeech(mic: MicCapture, referenceText: string, locale: Spe
 
     // Audio is pushed from our own capture (see mic.ts), not the SDK's microphone input.
     const pushStream = sdk.AudioInputStream.createPushStream(sdk.AudioStreamFormat.getWaveFormatPCM(TARGET_SAMPLE_RATE, 16, 1))
-    const unsubscribe = mic.subscribe((pcm) => pushStream.write(pcm))
+    const unsubscribe = mic.subscribe((pcm) => {
+      pushStream.write(pcm)
+      diagnostics.audioSeconds += pcm.byteLength / 2 / TARGET_SAMPLE_RATE
+      const samples = new Int16Array(pcm)
+      for (let i = 0; i < samples.length; i += 8) diagnostics.peak = Math.max(diagnostics.peak, Math.abs(samples[i]) / 0x8000)
+    })
     const recognizer = new sdk.SpeechRecognizer(speechConfig, sdk.AudioConfig.fromStreamInput(pushStream))
     close = () => recognizer.close()
-    // Breadcrumbs for debugging a session that never returns.
-    recognizer.sessionStarted = (_, e) => log('session started', e.sessionId)
-    recognizer.recognizing = (_, e) => log('hearing', e.result.text)
-    recognizer.canceled = (_, e) => log('canceled', sdk.CancellationReason[e.reason], e.errorCode, e.errorDetails)
+    // Breadcrumbs for debugging a session that hears nothing or never returns.
+    recognizer.sessionStarted = () => note('session')
+    recognizer.speechStartDetected = () => note('speech-start')
+    recognizer.speechEndDetected = () => note('speech-end')
+    recognizer.recognizing = (_, e) => note(`hearing:${e.result.text}`)
+    recognizer.canceled = (_, e) => note(`canceled:${sdk.CancellationReason[e.reason]}:${e.errorCode}:${e.errorDetails}`)
 
     const assessment = new sdk.PronunciationAssessmentConfig(
       referenceText,
@@ -160,9 +184,12 @@ export function assessSpeech(mic: MicCapture, referenceText: string, locale: Spe
         timer = window.setTimeout(() => reject(new SpeechUnavailable('recognition timed out')), RECOGNITION_TIMEOUT_MS)
         recognizer.recognizeOnceAsync(resolve, reject)
       })
-      log('result', sdk.ResultReason[recognized.reason], recognized.text)
-      if (cancelled) return { kind: 'silence' }
-      if (recognized.reason === sdk.ResultReason.NoMatch) return { kind: 'silence' }
+      if (cancelled) return silence()
+      if (recognized.reason === sdk.ResultReason.NoMatch) {
+        note(`no-match:${sdk.NoMatchReason[sdk.NoMatchDetails.fromResult(recognized).reason]}`)
+        return silence()
+      }
+      note(`result:${sdk.ResultReason[recognized.reason]}:${recognized.text}`)
       if (recognized.reason === sdk.ResultReason.Canceled) {
         const details = sdk.CancellationDetails.fromResult(recognized)
         throw new SpeechUnavailable(details.errorDetails || 'recognition canceled')
