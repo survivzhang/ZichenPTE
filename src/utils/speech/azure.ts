@@ -1,6 +1,8 @@
 // Pronunciation assessment in the browser with the Azure Speech SDK. The server
 // hands out short-lived tokens (/api/speech/token); the subscription key stays there.
 import type { ScoredPhoneme } from './ipa'
+import type { MicCapture } from './mic'
+import { TARGET_SAMPLE_RATE } from './mic'
 import { SPEAK_PASS_SCORE } from '@/store'
 import type { SpeakLocale } from '@/store'
 import type { SpeechRecognitionResult } from 'microsoft-cognitiveservices-speech-sdk'
@@ -102,19 +104,26 @@ function parseResult(json: string): Omit<Extract<Assessment, { kind: 'scored' }>
 
 export type AssessmentHandle = { result: Promise<Assessment>; cancel: () => void }
 
+// A recognition that neither finishes nor fails within this long is treated as unavailable,
+// so the practice never hangs on "listening".
+const RECOGNITION_TIMEOUT_MS = 20_000
+
+const log = (...args: unknown[]) => console.info('[speak]', ...args)
+
 /**
- * Listen on `stream` for one utterance of `referenceText` and score it.
+ * Listen on the microphone for one utterance of `referenceText` and score it.
  * Resolves to `silence` when nothing was said within a few seconds.
  * Rejects with SpeechUnavailable when Azure can't be reached, so the caller
  * can fall back to marking the word by hand.
  */
-export function assessSpeech(stream: MediaStream, referenceText: string, locale: SpeakLocale): AssessmentHandle {
+export function assessSpeech(mic: MicCapture, referenceText: string, locale: SpeakLocale): AssessmentHandle {
   let cancelled = false
   let close: (() => void) | null = null
 
   const result = (async (): Promise<Assessment> => {
     const [sdk, token] = await Promise.all([loadSdk(), getToken()])
     if (cancelled) return { kind: 'silence' }
+    mic.resume()
 
     const speechConfig = sdk.SpeechConfig.fromAuthorizationToken(token.token, token.region)
     speechConfig.speechRecognitionLanguage = locale
@@ -122,8 +131,15 @@ export function assessSpeech(stream: MediaStream, referenceText: string, locale:
     speechConfig.setProperty(sdk.PropertyId.SpeechServiceConnection_InitialSilenceTimeoutMs, '6000')
     speechConfig.setProperty(sdk.PropertyId.SpeechServiceConnection_EndSilenceTimeoutMs, '800')
 
-    const recognizer = new sdk.SpeechRecognizer(speechConfig, sdk.AudioConfig.fromStreamInput(stream))
+    // Audio is pushed from our own capture (see mic.ts), not the SDK's microphone input.
+    const pushStream = sdk.AudioInputStream.createPushStream(sdk.AudioStreamFormat.getWaveFormatPCM(TARGET_SAMPLE_RATE, 16, 1))
+    const unsubscribe = mic.subscribe((pcm) => pushStream.write(pcm))
+    const recognizer = new sdk.SpeechRecognizer(speechConfig, sdk.AudioConfig.fromStreamInput(pushStream))
     close = () => recognizer.close()
+    // Breadcrumbs for debugging a session that never returns.
+    recognizer.sessionStarted = (_, e) => log('session started', e.sessionId)
+    recognizer.recognizing = (_, e) => log('hearing', e.result.text)
+    recognizer.canceled = (_, e) => log('canceled', sdk.CancellationReason[e.reason], e.errorCode, e.errorDetails)
 
     const assessment = new sdk.PronunciationAssessmentConfig(
       referenceText,
@@ -138,8 +154,13 @@ export function assessSpeech(stream: MediaStream, referenceText: string, locale:
     }
     assessment.applyTo(recognizer)
 
+    let timer: number | undefined
     try {
-      const recognized = await new Promise<SpeechRecognitionResult>((resolve, reject) => recognizer.recognizeOnceAsync(resolve, reject))
+      const recognized = await new Promise<SpeechRecognitionResult>((resolve, reject) => {
+        timer = window.setTimeout(() => reject(new SpeechUnavailable('recognition timed out')), RECOGNITION_TIMEOUT_MS)
+        recognizer.recognizeOnceAsync(resolve, reject)
+      })
+      log('result', sdk.ResultReason[recognized.reason], recognized.text)
       if (cancelled) return { kind: 'silence' }
       if (recognized.reason === sdk.ResultReason.NoMatch) return { kind: 'silence' }
       if (recognized.reason === sdk.ResultReason.Canceled) {
@@ -153,6 +174,9 @@ export function assessSpeech(stream: MediaStream, referenceText: string, locale:
       if (error instanceof SpeechUnavailable) throw error
       throw new SpeechUnavailable(String(error))
     } finally {
+      window.clearTimeout(timer)
+      unsubscribe()
+      pushStream.close()
       recognizer.close()
       close = null
     }

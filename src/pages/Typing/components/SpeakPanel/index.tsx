@@ -12,6 +12,7 @@ import type { Assessment, AssessmentHandle } from '@/utils/speech/azure'
 import { assessSpeech, openMicrophone } from '@/utils/speech/azure'
 import { labelPhonemes } from '@/utils/speech/ipa'
 import type { ScoredPhoneme } from '@/utils/speech/ipa'
+import { MicCapture } from '@/utils/speech/mic'
 import { useAtomValue } from 'jotai'
 import { useCallback, useContext, useEffect, useRef, useState } from 'react'
 import { useHotkeys } from 'react-hotkeys-hook'
@@ -42,6 +43,25 @@ type Attempt = {
 const AUTO_ADVANCE_MS = 600
 const SILENCE_RETRY_MS = 900
 
+/** Input level of the microphone, 0-1, refreshed about ten times a second. */
+function useMicLevel(mic: MicCapture | null) {
+  const [level, setLevel] = useState(0)
+  useEffect(() => {
+    if (!mic) return
+    const timer = window.setInterval(() => setLevel(mic.level), 100)
+    return () => window.clearInterval(timer)
+  }, [mic])
+  return level
+}
+
+function MicLevel({ level }: { level: number }) {
+  return (
+    <div className="h-1.5 w-40 overflow-hidden rounded-full bg-indigo-100 dark:bg-gray-700">
+      <div className="h-full rounded-full bg-indigo-500 transition-[width] duration-100" style={{ width: `${Math.round(level * 100)}%` }} />
+    </div>
+  )
+}
+
 const buttonClass =
   'inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm text-gray-700 transition hover:border-indigo-400 hover:text-indigo-600 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:border-indigo-400'
 
@@ -51,13 +71,15 @@ const buttonClass =
  */
 function SpeakWord({
   word,
-  stream,
+  mic,
   micError,
+  micLevel,
   onFinish,
 }: {
   word: WordWithIndex
-  stream: MediaStream | null
+  mic: MicCapture | null
   micError: string | null
+  micLevel: number
   onFinish: () => void
 }) {
   // eslint-disable-next-line  @typescript-eslint/no-non-null-assertion
@@ -73,6 +95,8 @@ function SpeakWord({
   const attemptsRef = useRef(previous?.attempts ?? 0)
   const [phase, setPhase] = useState<Phase>(() => (micError ? { kind: 'manual', message: micError } : { kind: 'idle' }))
   const [recordingUrl, setRecordingUrl] = useState<string | null>(null)
+  // consecutive times Azure heard nothing, to hint at a wrong microphone
+  const [silences, setSilences] = useState(0)
 
   const handleRef = useRef<AssessmentHandle | null>(null)
   // set once the word has been marked by hand, so a second Y / N before re-render can't record twice
@@ -93,9 +117,9 @@ function SpeakWord({
 
   // Keep the recording so it can be played back against the dictionary audio.
   const startRecorder = useCallback(() => {
-    if (!stream || typeof MediaRecorder === 'undefined') return
+    if (!mic || typeof MediaRecorder === 'undefined') return
     try {
-      const recorder = new MediaRecorder(stream)
+      const recorder = new MediaRecorder(mic.stream)
       const chunks: Blob[] = []
       recorder.ondataavailable = (e) => e.data.size > 0 && chunks.push(e.data)
       recorder.onstop = () => {
@@ -111,7 +135,7 @@ function SpeakWord({
     } catch {
       // no playback, scoring still works
     }
-  }, [stream])
+  }, [mic])
 
   const finishAttempt = useCallback(
     (attempt: Attempt) => {
@@ -156,12 +180,12 @@ function SpeakWord({
   )
 
   const startListening = useCallback(() => {
-    if (!stream) return
+    if (!mic) return
     stopListening()
     markedRef.current = false
     setPhase({ kind: 'listening' })
     startRecorder()
-    const handle = assessSpeech(stream, word.name, locale)
+    const handle = assessSpeech(mic, word.name, locale)
     handleRef.current = handle
     handle.result
       .then((assessment) => {
@@ -171,9 +195,11 @@ function SpeakWord({
         recorderRef.current = null
         if (recorder && recorder.state !== 'inactive') recorder.stop()
         if (assessment.kind === 'silence') {
+          setSilences((n) => n + 1)
           setPhase({ kind: 'silence' })
           return
         }
+        setSilences(0)
         const phonemes = labelPhonemes(assessment.phonemes, ipa) as (ScoredPhoneme & { spoken?: string })[]
         setPhase({ kind: 'scored', assessment, phonemes })
         finishAttempt({
@@ -191,18 +217,18 @@ function SpeakWord({
         markedRef.current = false
         setPhase({ kind: 'manual', message: '评分不可用，请自己判断' })
       })
-  }, [finishAttempt, ipa, locale, startRecorder, stopListening, stream, word.name])
+  }, [finishAttempt, ipa, locale, mic, startRecorder, stopListening, word.name])
 
   // Listen as soon as the word is shown (and again after a silence), while practice is running.
   useEffect(() => {
-    if (!state.isTyping || !stream) return
+    if (!state.isTyping || !mic) return
     if (phase.kind === 'idle') {
       startListening()
     } else if (phase.kind === 'silence') {
       const timer = window.setTimeout(() => setPhase({ kind: 'idle' }), SILENCE_RETRY_MS)
       return () => window.clearTimeout(timer)
     }
-  }, [phase.kind, startListening, state.isTyping, stream])
+  }, [phase.kind, startListening, state.isTyping, mic])
 
   // Pausing stops the microphone; a result already on screen stays.
   useEffect(() => {
@@ -239,12 +265,12 @@ function SpeakWord({
   const retry = useCallback(() => {
     if (!state.isTyping || phase.kind === 'manual') return
     cancelAutoAdvance()
-    if (!stream) {
+    if (!mic) {
       setPhase({ kind: 'manual', message: micError ?? '麦克风不可用，请自己判断' })
       return
     }
     startListening()
-  }, [micError, phase.kind, startListening, state.isTyping, stream])
+  }, [micError, phase.kind, startListening, state.isTyping, mic])
 
   const next = useCallback(() => {
     if (!state.isTyping || phase.kind === 'manual') return
@@ -307,12 +333,20 @@ function SpeakWord({
 
       <div className="flex min-h-[9rem] w-full max-w-2xl flex-col items-center justify-start gap-3">
         {phase.kind === 'listening' && (
-          <p className="flex items-center gap-2 text-lg text-indigo-500">
-            <IconMicrophone className="h-6 w-6 animate-pulse" />
-            请读出这个词
-          </p>
+          <div className="flex flex-col items-center gap-2">
+            <p className="flex items-center gap-2 text-lg text-indigo-500">
+              <IconMicrophone className="h-6 w-6 animate-pulse" />
+              请读出这个词
+            </p>
+            <MicLevel level={micLevel} />
+          </div>
         )}
         {phase.kind === 'silence' && <p className="text-gray-400">没听到声音，再来一次…</p>}
+        {silences >= 2 && (phase.kind === 'listening' || phase.kind === 'silence') && (
+          <p className="max-w-md text-center text-sm text-amber-600">
+            连续没收到声音。说话时上面的音量条应该会动；如果不动，点地址栏左边的图标检查浏览器选的是哪个麦克风，然后刷新页面。
+          </p>
+        )}
         {phase.kind === 'idle' && state.isTyping && <p className="text-gray-400">正在打开麦克风…</p>}
 
         {scored && (
@@ -397,18 +431,19 @@ export function SpeakStats() {
 export default function SpeakPanel() {
   // eslint-disable-next-line  @typescript-eslint/no-non-null-assertion
   const { state, dispatch } = useContext(TypingContext)!
-  const [stream, setStream] = useState<MediaStream | null>(null)
+  const [mic, setMic] = useState<MicCapture | null>(null)
   const [micError, setMicError] = useState<string | null>(null)
+  const micLevel = useMicLevel(mic)
   const currentWord = state.chapterData.words[state.chapterData.index]
 
   // Ask for the microphone when practice starts, and keep it for the whole chapter.
   useEffect(() => {
-    if (!state.isTyping || stream || micError) return
+    if (!state.isTyping || mic || micError) return
     let cancelled = false
     openMicrophone()
       .then((s) => {
         if (cancelled) s.getTracks().forEach((t) => t.stop())
-        else setStream(s)
+        else setMic(new MicCapture(s))
       })
       .catch((error: Error) => {
         if (cancelled) return
@@ -420,9 +455,9 @@ export default function SpeakPanel() {
     return () => {
       cancelled = true
     }
-  }, [micError, state.isTyping, stream])
+  }, [micError, state.isTyping, mic])
 
-  useEffect(() => () => stream?.getTracks().forEach((t) => t.stop()), [stream])
+  useEffect(() => () => mic?.close(), [mic])
 
   const onFinish = useCallback(() => {
     if (state.chapterData.index < state.chapterData.words.length - 1) {
@@ -449,8 +484,9 @@ export default function SpeakPanel() {
             <SpeakWord
               key={`${state.chapterData.index}-${currentWord.name}`}
               word={currentWord}
-              stream={stream}
+              mic={mic}
               micError={micError}
+              micLevel={micLevel}
               onFinish={onFinish}
             />
           </div>
