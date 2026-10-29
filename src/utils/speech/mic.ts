@@ -6,7 +6,39 @@
 
 export const TARGET_SAMPLE_RATE = 16000
 
+// iPhone and iPad (Chrome there is WebKit too). iPadOS reports itself as a Mac with touch.
+const isIOS =
+  typeof navigator !== 'undefined' &&
+  (/iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1))
+
+let preparedContext: AudioContext | null = null
+
+function createContext() {
+  // iOS records at the hardware rate; a 16 kHz context fed by the microphone can come out
+  // silent there, so it keeps the native rate and toPcm16 resamples.
+  if (isIOS) return new AudioContext()
+  // Ask for 16 kHz so the browser resamples; fall back to resampling here.
+  try {
+    return new AudioContext({ sampleRate: TARGET_SAMPLE_RATE })
+  } catch {
+    return new AudioContext()
+  }
+}
+
+/**
+ * Call inside a tap or key handler, before asking for the microphone. iOS only lets audio
+ * start during a user gesture, and the microphone prompt resolves after the gesture is over.
+ */
+export function prepareAudioContext() {
+  if (preparedContext && preparedContext.state !== 'closed') return
+  preparedContext = createContext()
+  preparedContext.resume().catch(() => undefined)
+}
+
 type Listener = (pcm: ArrayBuffer) => void
+
+// iOS Safari counts touchend / click as gestures that may start audio, not pointerdown.
+const UNLOCK_EVENTS = ['keydown', 'pointerdown', 'touchend', 'click'] as const
 
 export class MicCapture {
   readonly stream: MediaStream
@@ -21,13 +53,8 @@ export class MicCapture {
 
   constructor(stream: MediaStream) {
     this.stream = stream
-    // Ask for 16 kHz so the browser resamples; fall back to resampling here.
-    let context: AudioContext
-    try {
-      context = new AudioContext({ sampleRate: TARGET_SAMPLE_RATE })
-    } catch {
-      context = new AudioContext()
-    }
+    const context = preparedContext && preparedContext.state !== 'closed' ? preparedContext : createContext()
+    preparedContext = null
     this.context = context
     this.source = context.createMediaStreamSource(stream)
     this.processor = context.createScriptProcessor(4096, 1, 1)
@@ -39,11 +66,11 @@ export class MicCapture {
     this.processor.connect(this.sink)
     this.sink.connect(context.destination)
 
+    // iOS also has an "interrupted" state (a call, switching apps) that needs a tap to leave.
     this.unlock = () => {
-      if (this.context.state === 'suspended') this.context.resume().catch(() => undefined)
+      if (this.context.state !== 'running' && this.context.state !== 'closed') this.context.resume().catch(() => undefined)
     }
-    document.addEventListener('keydown', this.unlock)
-    document.addEventListener('pointerdown', this.unlock)
+    UNLOCK_EVENTS.forEach((type) => document.addEventListener(type, this.unlock))
     this.unlock()
   }
 
@@ -73,8 +100,7 @@ export class MicCapture {
   }
 
   close() {
-    document.removeEventListener('keydown', this.unlock)
-    document.removeEventListener('pointerdown', this.unlock)
+    UNLOCK_EVENTS.forEach((type) => document.removeEventListener(type, this.unlock))
     this.processor.onaudioprocess = null
     this.source.disconnect()
     this.processor.disconnect()

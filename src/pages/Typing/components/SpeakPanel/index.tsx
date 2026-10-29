@@ -2,6 +2,7 @@ import { TypingContext, TypingStateActionType } from '../../store'
 import type { SpeakWordResult } from '../../store/type'
 import Progress from '../Progress'
 import InfoBox from '../Speed/InfoBox'
+import { isTouchDevice } from '../WordPanel/components/TouchInputHandler'
 import Translation from '../WordPanel/components/Translation'
 import PhonemeStrip from './PhonemeStrip'
 import useWordAudio from './useWordAudio'
@@ -12,7 +13,7 @@ import type { Assessment, AssessmentHandle, Diagnostics } from '@/utils/speech/a
 import { assessSpeech, openMicrophone } from '@/utils/speech/azure'
 import { labelPhonemes } from '@/utils/speech/ipa'
 import type { ScoredPhoneme } from '@/utils/speech/ipa'
-import { MicCapture } from '@/utils/speech/mic'
+import { MicCapture, prepareAudioContext } from '@/utils/speech/mic'
 import { useAtomValue } from 'jotai'
 import { useCallback, useContext, useEffect, useRef, useState } from 'react'
 import { useHotkeys } from 'react-hotkeys-hook'
@@ -43,15 +44,24 @@ type Attempt = {
 const AUTO_ADVANCE_MS = 600
 const SILENCE_RETRY_MS = 900
 
-/** Input level of the microphone, 0-1, refreshed about ten times a second. */
+/** Input level of the microphone, 0-1, and whether audio is flowing, refreshed about ten times a second. */
 function useMicLevel(mic: MicCapture | null) {
   const [level, setLevel] = useState(0)
+  const [running, setRunning] = useState(true)
   useEffect(() => {
     if (!mic) return
-    const timer = window.setInterval(() => setLevel(mic.level), 100)
+    const timer = window.setInterval(() => {
+      setLevel(mic.level)
+      setRunning(mic.isRunning)
+    }, 100)
     return () => window.clearInterval(timer)
   }, [mic])
-  return level
+  return { level, running }
+}
+
+/** Keyboard shortcut hint, left out on phones. */
+function Key({ children }: { children: string }) {
+  return isTouchDevice ? null : <kbd className="text-xs text-gray-400">{children}</kbd>
 }
 
 function MicLevel({ level }: { level: number }) {
@@ -74,12 +84,14 @@ function SpeakWord({
   mic,
   micError,
   micLevel,
+  micRunning,
   onFinish,
 }: {
   word: WordWithIndex
   mic: MicCapture | null
   micError: string | null
   micLevel: number
+  micRunning: boolean
   onFinish: () => void
 }) {
   // eslint-disable-next-line  @typescript-eslint/no-non-null-assertion
@@ -324,7 +336,13 @@ function SpeakWord({
       <Translation trans={word.trans.join('；')} showTrans={state.isTransVisible} />
 
       <div className="flex min-h-[9rem] w-full max-w-2xl flex-col items-center justify-start gap-3">
-        {phase.kind === 'listening' && (
+        {phase.kind === 'listening' && mic && !micRunning && (
+          // iOS keeps audio off until a tap; the tap itself resumes it (see MicCapture).
+          <button type="button" className={`${buttonClass} border-indigo-400 text-indigo-600`} onClick={() => mic.resume()}>
+            <IconMicrophone className="h-4 w-4" /> 点一下打开麦克风
+          </button>
+        )}
+        {phase.kind === 'listening' && (!mic || micRunning) && (
           <div className="flex flex-col items-center gap-2">
             <p className="flex items-center gap-2 text-lg text-indigo-500">
               <IconMicrophone className="h-6 w-6 animate-pulse" />
@@ -336,7 +354,9 @@ function SpeakWord({
         {phase.kind === 'silence' && <p className="text-gray-400">没听到声音，再来一次…</p>}
         {silences >= 2 && (phase.kind === 'listening' || phase.kind === 'silence') && (
           <p className="max-w-md text-center text-sm text-amber-600">
-            连续没收到声音。说话时上面的音量条应该会动；如果不动，点地址栏左边的图标检查浏览器选的是哪个麦克风，然后刷新页面。
+            {isTouchDevice
+              ? '连续没收到声音。说话时上面的音量条应该会动；如果不动，检查手机设置里浏览器有没有麦克风权限，然后刷新页面。'
+              : '连续没收到声音。说话时上面的音量条应该会动；如果不动，点地址栏左边的图标检查浏览器选的是哪个麦克风，然后刷新页面。'}
           </p>
         )}
         {silences >= 1 && diagnostics && (phase.kind === 'listening' || phase.kind === 'silence') && (
@@ -365,10 +385,10 @@ function SpeakWord({
             <p className="text-amber-600">{phase.message}</p>
             <div className="flex gap-3">
               <button type="button" className={buttonClass} onClick={() => markByHand(true)}>
-                ✓ 读对了 <kbd className="text-xs text-gray-400">Y</kbd>
+                ✓ 读对了 <Key>Y</Key>
               </button>
               <button type="button" className={buttonClass} onClick={() => markByHand(false)}>
-                ✗ 读错了 <kbd className="text-xs text-gray-400">N</kbd>
+                ✗ 读错了 <Key>N</Key>
               </button>
             </div>
           </div>
@@ -382,14 +402,14 @@ function SpeakWord({
         {((phase.kind === 'scored' && !phase.assessment.passed) || (phase.kind === 'manual-done' && !phase.passed)) && (
           <div className="mt-1 flex flex-wrap justify-center gap-2">
             <button type="button" className={`${buttonClass} border-indigo-400 text-indigo-600`} onClick={retry}>
-              <IconRefresh className="h-4 w-4" /> 再读一遍 <kbd className="text-xs text-gray-400">空格</kbd>
+              <IconRefresh className="h-4 w-4" /> 再读一遍 <Key>空格</Key>
             </button>
             <button type="button" className={buttonClass} onClick={playNative}>
-              <IconVolume className="h-4 w-4" /> 原声 <kbd className="text-xs text-gray-400">P</kbd>
+              <IconVolume className="h-4 w-4" /> 原声 <Key>P</Key>
             </button>
             {recordingUrl && (
               <button type="button" className={buttonClass} onClick={playRecording}>
-                <IconPlayerPlay className="h-4 w-4" /> 我的录音 <kbd className="text-xs text-gray-400">R</kbd>
+                <IconPlayerPlay className="h-4 w-4" /> 我的录音 <Key>R</Key>
               </button>
             )}
           </div>
@@ -428,7 +448,7 @@ export default function SpeakPanel() {
   const { state, dispatch } = useContext(TypingContext)!
   const [mic, setMic] = useState<MicCapture | null>(null)
   const [micError, setMicError] = useState<string | null>(null)
-  const micLevel = useMicLevel(mic)
+  const { level: micLevel, running: micRunning } = useMicLevel(mic)
   const currentWord = state.chapterData.words[state.chapterData.index]
 
   // Ask for the microphone when practice starts, and keep it for the whole chapter.
@@ -468,10 +488,19 @@ export default function SpeakPanel() {
         {currentWord && (
           <div className="relative flex w-full justify-center">
             {!state.isTyping && (
-              <div className="absolute flex h-full w-full justify-center" data-start-typing>
+              <div
+                className="absolute flex h-full w-full justify-center"
+                data-start-typing
+                onClick={() => {
+                  if (!isTouchDevice) return
+                  prepareAudioContext()
+                  dispatch({ type: TypingStateActionType.SET_IS_TYPING, payload: true })
+                }}
+              >
                 <div className="z-10 flex w-full items-center backdrop-blur-sm">
                   <p className="w-full select-none text-center text-xl text-gray-600 dark:text-gray-50">
-                    按空格{state.timerData.time ? '继续' : '开始'}跟读
+                    {isTouchDevice ? '点一下' : '按空格'}
+                    {state.timerData.time ? '继续' : '开始'}跟读
                   </p>
                 </div>
               </div>
@@ -482,6 +511,7 @@ export default function SpeakPanel() {
               mic={mic}
               micError={micError}
               micLevel={micLevel}
+              micRunning={micRunning}
               onFinish={onFinish}
             />
           </div>
