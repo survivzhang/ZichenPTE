@@ -13,6 +13,9 @@ import { useHotkeys } from 'react-hotkeys-hook'
 import IexportWords from '~icons/icon-park-outline/excel'
 import IconX from '~icons/tabler/x'
 
+// Phones stack the card: rings in a row, then the word list, then the buttons.
+const isNarrow = typeof window !== 'undefined' && window.innerWidth < 640
+
 const ResultScreen = () => {
   // eslint-disable-next-line  @typescript-eslint/no-non-null-assertion
   const { state, dispatch } = useContext(TypingContext)!
@@ -161,31 +164,38 @@ const ResultScreen = () => {
         leaveTo="opacity-0"
       >
         <div className="flex h-screen items-center justify-center">
-          <div className="my-card fixed flex w-[90vw] max-w-6xl flex-col overflow-hidden rounded-3xl bg-white pb-14 pl-10 pr-5 pt-10 shadow-lg dark:bg-gray-800 md:w-4/5 lg:w-3/5">
-            <div className="text-center font-sans text-xl font-normal text-gray-900 dark:text-gray-400 md:text-2xl">
+          <div className="my-card fixed flex max-h-[92vh] w-[92vw] max-w-6xl flex-col overflow-y-auto rounded-3xl bg-white px-4 pb-6 pt-6 shadow-lg dark:bg-gray-800 sm:overflow-hidden sm:pb-14 sm:pl-10 sm:pr-5 sm:pt-10 md:w-4/5 lg:w-3/5">
+            <div className="px-6 text-center font-sans text-lg font-normal text-gray-900 dark:text-gray-400 md:text-2xl">
               {isSpeak && <span className="mr-2 rounded-md bg-indigo-500 px-2 py-0.5 text-base text-white">跟读</span>}
               {`${currentDictInfo.name} 第${currentChapter + 1}章`}
               {state.isRetryPass && <span className="ml-2 text-base text-gray-400">· 重读错音词</span>}
             </div>
-            <button className="absolute right-7 top-5" onClick={exitButtonHandler}>
+            <button className="absolute right-4 top-4 sm:right-7 sm:top-5" onClick={exitButtonHandler}>
               <IconX className="text-gray-400" />
             </button>
-            <div className="mt-10 flex flex-row gap-2 overflow-hidden">
-              <div className="flex flex-shrink-0 flex-grow-0 flex-col gap-3 px-4 sm:px-1 md:px-2 lg:px-4">
+            <div className="mt-5 flex flex-col gap-4 sm:mt-10 sm:flex-row sm:gap-2 sm:overflow-hidden">
+              <div className="flex flex-shrink-0 flex-grow-0 flex-row justify-around gap-2 sm:flex-col sm:gap-3 sm:px-1 md:px-2 lg:px-4">
                 <RemarkRing
                   remark={`${firstTry.percent}%`}
-                  caption={`第一遍正确率 · ${firstTry.correct}/${firstTry.total} 词`}
+                  caption={
+                    isNarrow ? `第一遍 ${firstTry.correct}/${firstTry.total}` : `第一遍正确率 · ${firstTry.correct}/${firstTry.total} 词`
+                  }
                   percentage={firstTry.percent}
+                  size={isNarrow ? 6 : undefined}
                 />
-                <RemarkRing remark={timeString} caption="章节耗时" />
+                <RemarkRing remark={timeString} caption="章节耗时" size={isNarrow ? 6 : undefined} />
                 {isSpeak ? (
-                  <RemarkRing remark={averageScore === null ? '—' : averageScore + ''} caption={`平均分 · ${SPEAK_PASS_SCORE} 分及格`} />
+                  <RemarkRing
+                    remark={averageScore === null ? '—' : averageScore + ''}
+                    caption={`平均分 · ${SPEAK_PASS_SCORE} 分及格`}
+                    size={isNarrow ? 6 : undefined}
+                  />
                 ) : (
-                  <RemarkRing remark={state.timerData.wpm + ''} caption="WPM" />
+                  <RemarkRing remark={state.timerData.wpm + ''} caption="WPM" size={isNarrow ? 6 : undefined} />
                 )}
               </div>
-              <div className="z-10 ml-6 flex-1 overflow-visible rounded-xl bg-indigo-50 dark:bg-gray-700">
-                <div className="customized-scrollbar z-20 ml-8 mr-1 flex h-80 flex-row flex-wrap content-start gap-4 overflow-y-auto overflow-x-hidden pr-7 pt-9">
+              <div className="z-10 flex-1 overflow-visible rounded-xl bg-indigo-50 dark:bg-gray-700 sm:ml-6">
+                <div className="customized-scrollbar z-20 ml-4 mr-1 flex max-h-56 min-h-[4rem] flex-row flex-wrap content-start gap-3 overflow-y-auto overflow-x-hidden pb-3 pr-3 pt-4 sm:ml-8 sm:h-80 sm:max-h-none sm:gap-4 sm:pr-7 sm:pt-9">
                   {wrongWords.map((word, index) => (
                     <WordChip key={`${index}-${word.name}`} word={word} badge={isSpeak ? speakBadge(word) : undefined} />
                   ))}
@@ -195,16 +205,16 @@ const ResultScreen = () => {
                 </div>
               </div>
               {!isSpeak && (
-                <div className="ml-2 flex flex-col items-center justify-end gap-3 text-xl">
+                <div className="ml-2 hidden flex-col items-center justify-end gap-3 text-xl sm:flex">
                   <ShareButton />
                   <IexportWords fontSize={18} className="cursor-pointer text-gray-500" onClick={exportWords}></IexportWords>
                 </div>
               )}
             </div>
-            <div className="mt-10 flex w-full justify-center gap-5 px-5 text-xl">
+            <div className="mt-5 flex w-full flex-wrap justify-center gap-3 text-xl sm:mt-10 sm:gap-5 sm:px-5">
               {isSpeak && wrongWords.length > 0 && (
                 <button
-                  className="my-btn-primary h-12 border-2 border-solid border-indigo-400 bg-white text-base text-indigo-600 dark:bg-gray-600 dark:text-white"
+                  className="my-btn-primary h-12 whitespace-nowrap border-2 border-solid border-indigo-400 bg-white text-base text-indigo-600 dark:bg-gray-600 dark:text-white"
                   type="button"
                   onClick={retryWrongHandler}
                   title="只重读错音词"
@@ -214,7 +224,7 @@ const ResultScreen = () => {
               )}
               <Tooltip content="快捷键：space">
                 <button
-                  className="my-btn-primary h-12 border-2 border-solid border-gray-300 bg-white text-base text-gray-700 dark:border-gray-700 dark:bg-gray-600 dark:text-white dark:hover:bg-gray-700"
+                  className="my-btn-primary h-12 whitespace-nowrap border-2 border-solid border-gray-300 bg-white text-base text-gray-700 dark:border-gray-700 dark:bg-gray-600 dark:text-white dark:hover:bg-gray-700"
                   type="button"
                   onClick={repeatButtonHandler}
                   title="重复本章节"
@@ -225,7 +235,7 @@ const ResultScreen = () => {
               {!isLastChapter && (
                 <Tooltip content="快捷键：enter">
                   <button
-                    className={`{ isLastChapter ? 'cursor-not-allowed opacity-50' : ''} my-btn-primary h-12 text-base font-bold `}
+                    className={`{ isLastChapter ? 'cursor-not-allowed opacity-50' : ''} my-btn-primary h-12 whitespace-nowrap text-base font-bold `}
                     type="button"
                     onClick={nextButtonHandler}
                     title="下一章节"

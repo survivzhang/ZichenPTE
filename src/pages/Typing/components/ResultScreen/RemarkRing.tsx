@@ -50,7 +50,7 @@ export default function RemarkRing({ remark, caption, percentage = null, size = 
         />
       )}
       <span className="text-xl tabular-nums text-gray-800 dark:text-gray-300">{remark}</span>
-      <span className="text-sm font-medium text-gray-600 dark:text-gray-500">{caption}</span>
+      <span className="px-2 text-center text-xs font-medium leading-tight text-gray-600 dark:text-gray-500 sm:text-sm">{caption}</span>
     </div>
   )
 }

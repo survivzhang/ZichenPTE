@@ -28,6 +28,18 @@ yarn dev                      # 同时启动数据库（端口 55432）、API（
 yarn admin:create             # 首次使用时创建管理员账号（密码输入不会显示）
 ```
 
+**本地测试账号**（只在本地 Docker 数据库里，用来点页面、测 UI；不要在线上创建同名同密码的账号）：
+
+| 用户名   | 密码                |
+| -------- | ------------------- |
+| `uitest` | `t987425e9ecf0a279` |
+
+本地数据库是新的（或被清空过）时，用这条命令重建：
+
+```bash
+QL_USERNAME=uitest QL_PASSWORD=t987425e9ecf0a279 yarn admin:create
+```
+
 **部署到 Vercel**：在 Vercel 项目里设置 `DATABASE_URL`（如 Neon）、`BETTER_AUTH_SECRET`、`BETTER_AUTH_URL`（站点地址）。构建时会自动执行数据库迁移。云端的管理员账号在本地运行 `yarn admin:create:prod` 创建（会临时拉取线上环境变量，用完即删；脚本会先打印目标数据库地址）。
 
 <p align="center">
