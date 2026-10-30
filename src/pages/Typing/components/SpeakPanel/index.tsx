@@ -6,6 +6,7 @@ import { isTouchDevice } from '../WordPanel/components/TouchInputHandler'
 import Translation from '../WordPanel/components/Translation'
 import PhonemeStrip from './PhonemeStrip'
 import useWordAudio from './useWordAudio'
+import useSentenceAudio from '@/hooks/useSentenceAudio'
 import { SPEAK_PASS_SCORE, fontSizeConfigAtom, isTextSelectableAtom, speakConfigAtom } from '@/store'
 import type { WordWithIndex } from '@/typings'
 import { useSaveSpeakRecord } from '@/utils/db'
@@ -123,7 +124,11 @@ function SpeakWord({
   const fontSizeConfig = useAtomValue(fontSizeConfigAtom)
   const isTextSelectable = useAtomValue(isTextSelectableAtom)
   const saveSpeakRecord = useSaveSpeakRecord()
-  const playNative = useWordAudio(word.name, locale)
+  // A sentence is spoken by Azure TTS (the dictionary audio only has single words), in the scoring accent.
+  const isSentence = word.name.includes(' ')
+  const playWord = useWordAudio(isSentence ? undefined : word.name, locale)
+  const { play: playSentence } = useSentenceAudio(isSentence ? word.name : undefined, locale === 'en-US' ? 'us' : 'uk')
+  const playNative = isSentence ? playSentence : playWord
 
   const index = state.chapterData.index
   const previous = state.chapterData.speakResults[index] as SpeakWordResult | undefined
@@ -142,8 +147,6 @@ function SpeakWord({
   const aliveRef = useRef(true)
 
   const ipa = locale === 'en-US' ? word.usphone : word.ukphone
-  // template sentences: shown as text, scored word by word
-  const isSentence = word.name.includes(' ')
 
   const stopListening = useCallback(() => {
     handleRef.current?.cancel()

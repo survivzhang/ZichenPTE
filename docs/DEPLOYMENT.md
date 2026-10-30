@@ -19,6 +19,7 @@
 | `BETTER_AUTH_URL`                           | 正式域名 `https://pte.zichen1998.com`（最初设的是旧的 vercel.app 地址，换域名后要一起改） |
 | `AZURE_SPEECH_KEY` / `AZURE_SPEECH_REGION`  | Azure 发音和跟读打分（敏感，加密存储；`vercel env pull` 拿不到值，这是正常的）            |
 | `AZURE_TTS_VOICE`（可选）                   | 默认 `en-GB-SoniaNeural`，可改成如 `en-AU-NatashaNeural`                                  |
+| `AZURE_TTS_VOICE_US`（可选）                | 跟读美音句子的原声，默认 `en-US-JennyNeural`                                              |
 
 Preview 环境目前没有 `BETTER_AUTH_SECRET`，只有用 `master` 以外的分支部署时才需要补。
 

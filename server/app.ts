@@ -243,8 +243,9 @@ app.get('/tts', requireUser, async (c) => {
   const text = (c.req.query('text') ?? '').trim()
   if (!text || text.length > 600) return c.json({ error: 'text must be 1-600 characters' }, 400)
   if (!isTtsConfigured()) return c.json({ error: 'TTS not configured' }, 503)
+  const accent = c.req.query('accent') === 'us' ? 'us' : 'uk'
   try {
-    const audio = await synthesize(text)
+    const audio = await synthesize(text, accent)
     if (!audio) return c.json({ error: 'TTS not configured' }, 503)
     return c.body(new Uint8Array(audio), 200, { 'Content-Type': 'audio/mpeg', 'Cache-Control': 'private, max-age=31536000, immutable' })
   } catch (error) {
