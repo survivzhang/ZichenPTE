@@ -246,7 +246,7 @@ function SpeakWord({
         const phonemes = labelPhonemes(assessment.phonemes, ipa) as (ScoredPhoneme & { spoken?: string })[]
         setPhase({ kind: 'scored', assessment, phonemes })
         finishAttempt({
-          score: assessment.accuracy,
+          score: assessment.score,
           passed: assessment.passed,
           manual: false,
           phonemes,
@@ -414,12 +414,27 @@ function SpeakWord({
 
         {scored && (
           <>
-            <p className={`text-4xl font-semibold ${scoreColor(scored.accuracy)}`}>
-              {scored.accuracy}
+            <p className={`text-4xl font-semibold ${scoreColor(scored.score)}`}>
+              {scored.score}
               <span className="ml-2 text-base font-normal text-gray-400">
                 {scored.passed ? '及格' : `未及格（${SPEAK_PASS_SCORE} 分及格）`}
               </span>
             </p>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              {[
+                ['准确', scored.accuracy],
+                ['流利', scored.fluency],
+                ...(scored.prosody === null ? [] : [['语调', scored.prosody] as const]),
+              ].map(([label, value], i) => (
+                <span key={label}>
+                  {i > 0 && ' · '}
+                  {label} <span className={scoreColor(value as number)}>{value}</span>
+                </span>
+              ))}
+            </p>
+            {!scored.passed && scored.failures.length > 0 && (
+              <p className="max-w-xl text-center text-sm text-red-500">没过：{scored.failures.join('，')}</p>
+            )}
             {misheard && <p className="text-sm text-gray-500">听成了 “{misheard}”</p>}
             {!scored.passed && isSentence && <WordScores words={scored.words} />}
             {!scored.passed && !isSentence && <PhonemeStrip phonemes={phase.kind === 'scored' ? phase.phonemes : []} />}

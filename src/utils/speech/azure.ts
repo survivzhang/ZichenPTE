@@ -25,10 +25,17 @@ export type Assessment =
       kind: 'scored'
       // what Azure heard
       text: string
-      // overall accuracy, 0-100
+      // the headline score, 0-100: Azure's PronScore, which weighs accuracy, fluency,
+      // completeness and (en-US) prosody, so halting or flat reading costs points like in PTE
+      score: number
+      // its parts; prosody is null for en-GB, where Azure doesn't assess it
       accuracy: number
+      fluency: number
+      prosody: number | null
       words: AssessedWord[]
       passed: boolean
+      // why it didn't pass, e.g. "about 53 分" or "流利 72"
+      failures: string[]
       phonemes: AssessedWord['phonemes']
       durationMs: number
     }
@@ -69,9 +76,10 @@ type AzureWord = {
   PronunciationAssessment?: { AccuracyScore?: number; ErrorType?: string }
   Phonemes?: AzurePhoneme[]
 }
+type AzureScores = { AccuracyScore?: number; FluencyScore?: number; ProsodyScore?: number; PronScore?: number }
 type AzureResult = {
   Duration?: number
-  NBest?: { Display?: string; PronunciationAssessment?: { AccuracyScore?: number }; Words?: AzureWord[] }[]
+  NBest?: { Display?: string; PronunciationAssessment?: AzureScores; Words?: AzureWord[] }[]
 }
 
 function parseResult(json: string): Omit<Extract<Assessment, { kind: 'scored' }>, 'kind'> {
@@ -89,13 +97,37 @@ function parseResult(json: string): Omit<Extract<Assessment, { kind: 'scored' }>
         spoken: p.PronunciationAssessment?.NBestPhonemes?.[0]?.Phoneme,
       })),
     }))
-  // Every reference word has to be said, and said well enough.
-  const passed = words.length > 0 && words.every((w) => w.errorType === 'None' && w.accuracy >= SPEAK_PASS_SCORE)
+  const scores = best?.PronunciationAssessment ?? {}
+  const accuracy = Math.round(scores.AccuracyScore ?? 0)
+  const fluency = Math.round(scores.FluencyScore ?? 0)
+  const prosody = scores.ProsodyScore === undefined ? null : Math.round(scores.ProsodyScore)
+  const score = Math.round(scores.PronScore ?? accuracy)
+  const weakParts = (
+    [
+      ['准确', accuracy],
+      ['流利', fluency],
+      ['语调', prosody],
+    ] as const
+  )
+    .filter(([, value]) => value !== null && value < SPEAK_PASS_SCORE)
+    .map(([label, value]) => `${label} ${value}`)
+  // The whole reading has to reach the pass mark, and every reference word has to be said well enough.
+  const failures = [
+    ...(words.length === 0 ? ['没听到要读的词'] : []),
+    ...(score < SPEAK_PASS_SCORE ? [`总分 ${score}${weakParts.length ? `（${weakParts.join('、')}）` : ''}`] : []),
+    ...words
+      .filter((w) => w.errorType === 'Omission' || w.accuracy < SPEAK_PASS_SCORE)
+      .map((w) => (w.errorType === 'Omission' ? `${w.word} 漏读` : `${w.word} ${w.accuracy} 分`)),
+  ]
   return {
     text: best?.Display ?? '',
-    accuracy: Math.round(best?.PronunciationAssessment?.AccuracyScore ?? 0),
+    score,
+    accuracy,
+    fluency,
+    prosody,
     words,
-    passed,
+    passed: failures.length === 0,
+    failures,
     phonemes: words.flatMap((w) => w.phonemes),
     // Duration is in 100-nanosecond ticks
     durationMs: Math.round((result.Duration ?? 0) / 10_000),
@@ -174,10 +206,11 @@ export function assessSpeech(mic: MicCapture, referenceText: string, locale: Spe
       sdk.PronunciationAssessmentGranularity.Phoneme,
       true,
     )
-    // Phoneme names (and what was said instead) are only available for en-US.
+    // Phoneme names (and what was said instead) and prosody (stress, intonation, rhythm) are only available for en-US.
     if (locale === 'en-US') {
       assessment.phonemeAlphabet = 'IPA'
       assessment.nbestPhonemeCount = 3
+      assessment.enableProsodyAssessment = true
     }
     assessment.applyTo(recognizer)
 
