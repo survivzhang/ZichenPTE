@@ -93,6 +93,21 @@ export function calcChapterCount(length: number) {
   return Math.ceil(length / CHAPTER_LENGTH)
 }
 
+type ChapteredDict = { chapters?: { name: string; length: number }[] }
+
+/** Start and end (exclusive) of a chapter in the dictionary's word list. */
+export function chapterRange(dict: ChapteredDict, chapter: number): [number, number] {
+  if (!dict.chapters) return [chapter * CHAPTER_LENGTH, (chapter + 1) * CHAPTER_LENGTH]
+  const start = dict.chapters.slice(0, chapter).reduce((sum, c) => sum + c.length, 0)
+  return [start, start + (dict.chapters[chapter]?.length ?? 0)]
+}
+
+/** 「第 3 章」, or 「第 3 章 · RL · 复述讲座」 for a dictionary with named chapters. */
+export function chapterLabel(dict: ChapteredDict, chapter: number) {
+  const name = dict.chapters?.[chapter]?.name
+  return name ? `第 ${chapter + 1} 章 · ${name}` : `第 ${chapter + 1} 章`
+}
+
 export function findCommonValues<T>(xs: T[], ys: T[]): T[] {
   const set = new Set(ys)
   return xs.filter((x) => set.has(x))

@@ -14,6 +14,7 @@ export default function WordChip({ word, badge }: { word: WordWithIndex; badge?:
   const role = useRole(context, { role: 'tooltip' })
   const { getReferenceProps, getFloatingProps } = useInteractions([hover, role])
   const { play, stop } = usePronunciationSound(word.name, false)
+  const isSentence = word.name.includes(' ')
 
   const onClickWord = useCallback(() => {
     stop()
@@ -24,14 +25,15 @@ export default function WordChip({ word, badge }: { word: WordWithIndex; badge?:
     <>
       <button
         ref={refs.setReference}
-        className="word-chip select-all"
+        className={`word-chip select-all ${isSentence ? 'h-auto max-w-full py-1.5 text-left' : ''}`}
         {...getReferenceProps()}
         type="button"
         onClick={onClickWord}
         title={`朗读 ${word.name}`}
       >
-        <span>{word.name}</span>
-        {badge && <span className="ml-1.5 text-xs text-red-500">{badge}</span>}
+        {/* a template sentence wraps in plain text instead of the big monospace word */}
+        <span className={isSentence ? '!font-sans !text-base' : ''}>{word.name}</span>
+        {badge && <span className="ml-1.5 shrink-0 !text-xs !text-red-500">{badge}</span>}
       </button>
       {showTranslation && (
         <div

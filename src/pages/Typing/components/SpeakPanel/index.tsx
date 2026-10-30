@@ -72,6 +72,29 @@ function MicLevel({ level }: { level: number }) {
   )
 }
 
+/** A sentence's words, each colored by its score; a word that wasn't said is struck through. */
+function WordScores({ words }: { words: Scored['words'] }) {
+  return (
+    <div className="flex max-w-2xl flex-wrap justify-center gap-1.5 px-2">
+      {words.map((w, i) => {
+        const missed = w.errorType === 'Omission'
+        const color =
+          missed || w.accuracy < 60
+            ? 'bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-200'
+            : w.accuracy < SPEAK_PASS_SCORE || w.errorType !== 'None'
+            ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-200'
+            : 'bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-200'
+        return (
+          <span key={i} className={`flex flex-col items-center rounded-md px-1.5 py-0.5 ${color}`}>
+            <span className={missed ? 'line-through' : ''}>{w.word}</span>
+            <span className="text-[11px] leading-4 opacity-80">{missed ? '漏读' : w.accuracy}</span>
+          </span>
+        )
+      })}
+    </div>
+  )
+}
+
 const buttonClass =
   'inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm text-gray-700 transition hover:border-indigo-400 hover:text-indigo-600 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:border-indigo-400'
 
@@ -119,6 +142,8 @@ function SpeakWord({
   const aliveRef = useRef(true)
 
   const ipa = locale === 'en-US' ? word.usphone : word.ukphone
+  // template sentences: shown as text, scored word by word
+  const isSentence = word.name.includes(' ')
 
   const stopListening = useCallback(() => {
     handleRef.current?.cancel()
@@ -245,6 +270,11 @@ function SpeakWord({
     }
   }, [phase.kind, startListening, state.isTyping, mic])
 
+  // The microphone was refused after the word appeared: mark it by hand instead of waiting forever.
+  useEffect(() => {
+    if (micError && phase.kind === 'idle') setPhase({ kind: 'manual', message: micError })
+  }, [micError, phase.kind])
+
   // Pausing stops the microphone; a result already on screen stays.
   useEffect(() => {
     if (state.isTyping) return
@@ -281,6 +311,7 @@ function SpeakWord({
     if (!state.isTyping || phase.kind === 'manual') return
     cancelAutoAdvance()
     if (!mic) {
+      markedRef.current = false
       setPhase({ kind: 'manual', message: micError ?? '麦克风不可用，请自己判断' })
       return
     }
@@ -311,23 +342,34 @@ function SpeakWord({
   useHotkeys('n', () => markByHand(false), { preventDefault: true }, [markByHand])
 
   const scored = phase.kind === 'scored' ? phase.assessment : null
-  const heard =
-    scored &&
-    scored.text
+  const normalize = (text: string) =>
+    text
       .replace(/[^a-z' ]/gi, '')
+      .replace(/\s+/g, ' ')
       .trim()
       .toLowerCase()
-  const misheard = scored && !scored.passed && heard && heard !== word.name.toLowerCase() ? scored.text : null
+  const heard = scored && normalize(scored.text)
+  const misheard = scored && !scored.passed && heard && heard !== normalize(word.name) ? scored.text : null
   const scoreColor = (score: number) => (score >= SPEAK_PASS_SCORE ? 'text-green-600' : score >= 60 ? 'text-amber-500' : 'text-red-500')
 
   return (
     <div className="flex w-full flex-col items-center">
-      <p
-        className={`font-mono text-gray-800 dark:text-gray-100 ${isTextSelectable ? 'select-text' : 'select-none'}`}
-        style={{ fontSize: `min(${fontSizeConfig.foreignFont}px, 9vw)` }}
-      >
-        {word.name}
-      </p>
+      {isSentence ? (
+        <p
+          className={`max-w-3xl px-2 text-center text-2xl leading-snug text-gray-800 dark:text-gray-100 sm:text-3xl ${
+            isTextSelectable ? 'select-text' : 'select-none'
+          }`}
+        >
+          {word.name}
+        </p>
+      ) : (
+        <p
+          className={`font-mono text-gray-800 dark:text-gray-100 ${isTextSelectable ? 'select-text' : 'select-none'}`}
+          style={{ fontSize: `min(${fontSizeConfig.foreignFont}px, 9vw)` }}
+        >
+          {word.name}
+        </p>
+      )}
       {ipa && ipa.length > 1 && (
         <p className={`mt-1 text-sm text-gray-600 dark:text-gray-400 ${isTextSelectable ? 'select-text' : ''}`}>
           {locale === 'en-US' ? 'AmE' : 'BrE'}: [{ipa}]
@@ -376,7 +418,8 @@ function SpeakWord({
               </span>
             </p>
             {misheard && <p className="text-sm text-gray-500">听成了 “{misheard}”</p>}
-            {!scored.passed && <PhonemeStrip phonemes={phase.kind === 'scored' ? phase.phonemes : []} />}
+            {!scored.passed && isSentence && <WordScores words={scored.words} />}
+            {!scored.passed && !isSentence && <PhonemeStrip phonemes={phase.kind === 'scored' ? phase.phonemes : []} />}
           </>
         )}
 

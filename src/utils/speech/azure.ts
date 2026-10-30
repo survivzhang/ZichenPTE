@@ -148,7 +148,8 @@ export function assessSpeech(mic: MicCapture, referenceText: string, locale: Spe
     // end-silence (the deprecated EndSilenceTimeoutMs, 800 ms) made the service give up on
     // single words with NoMatch:NotRecognized right after it had heard them.
     speechConfig.setProperty(sdk.PropertyId.SpeechServiceConnection_InitialSilenceTimeoutMs, '6000')
-    speechConfig.setProperty(sdk.PropertyId.Speech_SegmentationSilenceTimeoutMs, '1000')
+    // A sentence gets a little longer, so a breath at a comma doesn't end it.
+    speechConfig.setProperty(sdk.PropertyId.Speech_SegmentationSilenceTimeoutMs, referenceText.includes(' ') ? '1500' : '1000')
 
     // Audio is pushed from our own capture (see mic.ts), not the SDK's microphone input.
     const pushStream = sdk.AudioInputStream.createPushStream(sdk.AudioStreamFormat.getWaveFormatPCM(TARGET_SAMPLE_RATE, 16, 1))

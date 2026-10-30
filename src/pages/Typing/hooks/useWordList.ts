@@ -1,7 +1,7 @@
-import { CHAPTER_LENGTH } from '@/constants'
 import { isPteDict, pteDictIds } from '@/resources/pte'
 import { activeChapterAtom, activeDictInfoAtom, practiceModeAtom, speakDictKey, srsReviewAtom } from '@/store'
 import type { Word, WordWithIndex } from '@/typings/index'
+import { chapterRange } from '@/utils'
 import { getJSON } from '@/utils/api'
 import { wordListFetcher } from '@/utils/wordListFetcher'
 import { useAtom, useAtomValue } from 'jotai'
@@ -29,7 +29,8 @@ export function useWordList(): UseWordListResult {
 
   // PTE dictionaries share words: skip ones already practiced in another PTE dictionary
   // (on the same track: words typed elsewhere don't skip reading them aloud).
-  const otherPteDicts = !srsReview.active && isPteDict(currentDictInfo) ? pteDictIds.filter((id) => id !== currentDictInfo.id) : []
+  const otherPteDicts =
+    !srsReview.active && isPteDict(currentDictInfo) && !currentDictInfo.chapters ? pteDictIds.filter((id) => id !== currentDictInfo.id) : []
   const { data: practicedElsewhere } = useSWR(
     otherPteDicts.length
       ? `/words/practiced?dicts=${(isSpeak ? otherPteDicts.map(speakDictKey) : otherPteDicts).join(',')}${isSpeak ? '&mode=speak' : ''}`
@@ -56,7 +57,7 @@ export function useWordList(): UseWordListResult {
     } else if (isFirstChapter) {
       newWords = firstChapter
     } else if (wordList) {
-      newWords = wordList.slice(currentChapter * CHAPTER_LENGTH, (currentChapter + 1) * CHAPTER_LENGTH)
+      newWords = wordList.slice(...chapterRange(currentDictInfo, currentChapter))
       if (practicedElsewhere) {
         newWords = newWords.filter((word) => !practicedElsewhere.has(word.name.toLowerCase()))
       }
@@ -80,7 +81,7 @@ export function useWordList(): UseWordListResult {
         trans,
       }
     })
-  }, [srsReview, isWaitingForPracticed, practicedElsewhere, isFirstChapter, wordList, currentChapter])
+  }, [srsReview, isWaitingForPracticed, practicedElsewhere, isFirstChapter, wordList, currentChapter, currentDictInfo])
 
   const isChapterAllSkipped = !srsReview.active && !!wordList && !!practicedElsewhere && words.length === 0
 

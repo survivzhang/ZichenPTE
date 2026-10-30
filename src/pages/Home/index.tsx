@@ -16,6 +16,7 @@ import {
   srsReviewAtom,
 } from '@/store'
 import type { PracticeMode } from '@/store'
+import { chapterLabel } from '@/utils'
 import { getJSON } from '@/utils/api'
 import { authClient } from '@/utils/auth-client'
 import { useDueReviews } from '@/utils/review'
@@ -178,10 +179,11 @@ function TrackPanel({ mode }: { mode: PracticeMode }) {
             ) : recommendation ? (
               <>
                 <p className="text-gray-700 dark:text-gray-200">
-                  {recommendation.kind === 'start' && '从第 1 章开始吧。'}
-                  {recommendation.kind === 'continue' && `上次${track.actionLabel}到第 ${recommendation.chapter + 1} 章，接着来。`}
+                  {recommendation.kind === 'start' && `从${chapterLabel(dict, 0)}开始吧。`}
+                  {recommendation.kind === 'continue' &&
+                    `上次${track.actionLabel}到${chapterLabel(dict, recommendation.chapter)}，接着来。`}
                   {recommendation.kind === 'next' &&
-                    `第 ${recommendation.finished + 1} 章已完成，推荐继续第 ${recommendation.chapter + 1} 章。`}
+                    `${chapterLabel(dict, recommendation.finished)}已完成，推荐继续${chapterLabel(dict, recommendation.chapter)}。`}
                 </p>
                 <button
                   type="button"

@@ -12,6 +12,10 @@ export type DictionaryResource = {
   languageCategory: LanguageCategoryType
   //override default pronunciation when not undefined
   defaultPronIndex?: number
+  // practiced only on the 跟读 track (sentences, not words to spell)
+  speakOnly?: boolean
+  // named chapters of their own sizes, in order, instead of fixed 20-word ones
+  chapters?: { name: string; length: number }[]
 }
 
 export type Dictionary = {
@@ -28,6 +32,10 @@ export type Dictionary = {
   chapterCount: number
   //override default pronunciation when not undefined
   defaultPronIndex?: number
+  // practiced only on the 跟读 track (sentences, not words to spell)
+  speakOnly?: boolean
+  // named chapters of their own sizes, in order, instead of fixed 20-word ones
+  chapters?: { name: string; length: number }[]
 }
 
 export type PronunciationConfig = {

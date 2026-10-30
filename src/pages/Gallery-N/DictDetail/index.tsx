@@ -33,8 +33,8 @@ export default function DictDetail({ dictionary: dict }: { dictionary: Dictionar
   const [speakDictId, setSpeakDictId] = useAtom(speakDictIdAtom)
   const [practiceMode, setPracticeMode] = useAtom(practiceModeAtom)
   // PTE dictionaries can be practiced on two tracks: typed (拼写) or read aloud (跟读).
-  const hasSpeak = isPteDict(dict)
-  const [mode, setMode] = useState<PracticeMode>(hasSpeak ? practiceMode : 'spell')
+  const hasSpeak = isPteDict(dict) && !dict.speakOnly
+  const [mode, setMode] = useState<PracticeMode>(dict.speakOnly ? 'speak' : hasSpeak ? practiceMode : 'spell')
   const [curTab, setCurTab] = useState<Tab>(Tab.Chapters)
   const setSrsReview = useSetAtom(srsReviewAtom)
   const navigate = useNavigate()
@@ -74,7 +74,9 @@ export default function DictDetail({ dictionary: dict }: { dictionary: Dictionar
       <div className="text relative flex h-40 flex-col gap-2">
         <h3 className="text-2xl font-semibold">{dict.name}</h3>
         <p className="mt-1">{dict.chapterCount} 章节</p>
-        <p>共 {dict.length} 词</p>
+        <p>
+          共 {dict.length} {dict.speakOnly ? '句' : '词'}
+        </p>
         <p>{dict.description}</p>
         {hasSpeak && (
           <div className="absolute bottom-5 left-0">
@@ -112,6 +114,7 @@ export default function DictDetail({ dictionary: dict }: { dictionary: Dictionar
                   <Chapter
                     key={`${dict.id}-${mode}-${index}`}
                     index={index}
+                    name={dict.chapters?.[index]?.name}
                     checked={chapter === index}
                     dictID={mode === 'speak' ? speakDictKey(dict.id) : dict.id}
                     onChange={onChangeChapter}

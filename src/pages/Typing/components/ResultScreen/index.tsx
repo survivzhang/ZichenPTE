@@ -5,6 +5,7 @@ import RemarkRing from './RemarkRing'
 import WordChip from './WordChip'
 import Tooltip from '@/components/Tooltip'
 import { SPEAK_PASS_SCORE, activeChapterAtom, activeDictInfoAtom, randomConfigAtom } from '@/store'
+import { chapterLabel } from '@/utils'
 import { useIsSpeakTrack } from '@/utils/db'
 import { Transition } from '@headlessui/react'
 import { useAtom, useAtomValue } from 'jotai'
@@ -167,7 +168,7 @@ const ResultScreen = () => {
           <div className="my-card fixed flex max-h-[92vh] w-[92vw] max-w-6xl flex-col overflow-y-auto rounded-3xl bg-white px-4 pb-6 pt-6 shadow-lg dark:bg-gray-800 sm:overflow-hidden sm:pb-14 sm:pl-10 sm:pr-5 sm:pt-10 md:w-4/5 lg:w-3/5">
             <div className="px-6 text-center font-sans text-lg font-normal text-gray-900 dark:text-gray-400 md:text-2xl">
               {isSpeak && <span className="mr-2 rounded-md bg-indigo-500 px-2 py-0.5 text-base text-white">跟读</span>}
-              {`${currentDictInfo.name} 第${currentChapter + 1}章`}
+              {`${currentDictInfo.name} ${chapterLabel(currentDictInfo, currentChapter)}`}
               {state.isRetryPass && <span className="ml-2 text-base text-gray-400">· 重读错音词</span>}
             </div>
             <button className="absolute right-4 top-4 sm:right-7 sm:top-5" onClick={exitButtonHandler}>

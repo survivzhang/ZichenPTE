@@ -1419,6 +1419,29 @@ const internationalExam: DictionaryResource[] = [
     language: 'en',
     languageCategory: 'en',
   },
+  {
+    // From the Notion page「PTE 模板速查」, blanks filled with an example; one chapter per template.
+    id: 'PTE_templates',
+    name: 'PTE 模板跟读',
+    description: '口语和 SST 模板句，空的地方填了例子；每个模板一章',
+    category: '国际考试',
+    tags: ['PTE'],
+    url: '/dicts/PTE_templates.json',
+    length: 55,
+    language: 'en',
+    languageCategory: 'en',
+    speakOnly: true,
+    chapters: [
+      { name: 'DI · 数据图', length: 8 },
+      { name: 'DI · 流程图', length: 5 },
+      { name: 'DI · 地图 / 图片', length: 4 },
+      { name: 'RL · 复述讲座', length: 5 },
+      { name: 'SGD · 小组讨论总结', length: 5 },
+      { name: 'RTS · 情景回应', length: 5 },
+      { name: 'SST · 听力总结', length: 4 },
+      { name: '连接词库', length: 19 },
+    ],
+  },
   // {
   //   id: 'PTE_WFDgaopinci.json',
   //   name: 'PTE WFD高频词汇',
@@ -3427,7 +3450,7 @@ export const dictionaryResources: DictionaryResource[] = [
 
 export const dictionaries: Dictionary[] = dictionaryResources.map((resource) => ({
   ...resource,
-  chapterCount: calcChapterCount(resource.length),
+  chapterCount: resource.chapters?.length ?? calcChapterCount(resource.length),
 }))
 
 /**

@@ -7,4 +7,5 @@ export const PTE_TAG = 'PTE'
 export const isPteDict = (dict: Dictionary) => dict.category === PTE_CATEGORY && dict.tags.includes(PTE_TAG)
 
 export const pteDictionaries = dictionaries.filter(isPteDict)
-export const pteDictIds = pteDictionaries.map((dict) => dict.id)
+// Dictionaries whose words are skipped when already practiced in another one (not the template sentences).
+export const pteDictIds = pteDictionaries.filter((dict) => !dict.chapters).map((dict) => dict.id)

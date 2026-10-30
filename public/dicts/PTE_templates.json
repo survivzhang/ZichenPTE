@@ -1,0 +1,442 @@
+[
+  {
+    "name": "The following graph gives us information about the population of Australia.",
+    "trans": [
+      "The following graph gives us information about [标题]."
+    ],
+    "usphone": "",
+    "ukphone": ""
+  },
+  {
+    "name": "According to the graph, the items include cars, buses, trains and bicycles.",
+    "trans": [
+      "According to the graph, the items include [列举关键信息]."
+    ],
+    "usphone": "",
+    "ukphone": ""
+  },
+  {
+    "name": "What's more, the largest number is fifty for cars, which is around half of the total, followed by buses.",
+    "trans": [
+      "What's more, the largest number is … for …, which is around …, followed by …."
+    ],
+    "usphone": "",
+    "ukphone": ""
+  },
+  {
+    "name": "Moreover, the smallest number is around five for bicycles.",
+    "trans": [
+      "Moreover, the smallest number is around … for …."
+    ],
+    "usphone": "",
+    "ukphone": ""
+  },
+  {
+    "name": "The largest part is cars, which is represented by red.",
+    "trans": [
+      "The largest part is …, which is represented by [red]."
+    ],
+    "usphone": "",
+    "ukphone": ""
+  },
+  {
+    "name": "The blue one means that many people take the bus.",
+    "trans": [
+      "The blue one means that …."
+    ],
+    "usphone": "",
+    "ukphone": ""
+  },
+  {
+    "name": "When it comes to trains, it means that more people travel by rail.",
+    "trans": [
+      "When it comes to …, it means that …."
+    ],
+    "usphone": "",
+    "ukphone": ""
+  },
+  {
+    "name": "In conclusion, cars are the most popular way to travel.",
+    "trans": [
+      "(In conclusion, ….)"
+    ],
+    "usphone": "",
+    "ukphone": ""
+  },
+  {
+    "name": "As we can see from the graph, the first step is collecting the raw materials.",
+    "trans": [
+      "As we can see from the graph, the first step is …."
+    ],
+    "usphone": "",
+    "ukphone": ""
+  },
+  {
+    "name": "After that, the second step is washing them.",
+    "trans": [
+      "After that, the second step is …."
+    ],
+    "usphone": "",
+    "ukphone": ""
+  },
+  {
+    "name": "Moreover, the following step is cutting them into pieces.",
+    "trans": [
+      "Moreover, the following step is …."
+    ],
+    "usphone": "",
+    "ukphone": ""
+  },
+  {
+    "name": "In addition, the next step is cooking them at a high temperature.",
+    "trans": [
+      "In addition, the next step is …."
+    ],
+    "usphone": "",
+    "ukphone": ""
+  },
+  {
+    "name": "The final step is packing the products.",
+    "trans": [
+      "The final step is …."
+    ],
+    "usphone": "",
+    "ukphone": ""
+  },
+  {
+    "name": "On the left side of the picture, we can see a large river.",
+    "trans": [
+      "On the left / west side of the picture / map, we can see …."
+    ],
+    "usphone": "",
+    "ukphone": ""
+  },
+  {
+    "name": "On the right side of the map, there are some tall buildings.",
+    "trans": [
+      "On the right / east side of the graph / map, there are …."
+    ],
+    "usphone": "",
+    "ukphone": ""
+  },
+  {
+    "name": "In the background of the image, there are green mountains.",
+    "trans": [
+      "In the background of the image, there are …."
+    ],
+    "usphone": "",
+    "ukphone": ""
+  },
+  {
+    "name": "At the top of the image, there is a clear blue sky.",
+    "trans": [
+      "At the top / bottom of the image, …."
+    ],
+    "usphone": "",
+    "ukphone": ""
+  },
+  {
+    "name": "This lecture talked about climate change.",
+    "trans": [
+      "This lecture talked about …."
+    ],
+    "usphone": "",
+    "ukphone": ""
+  },
+  {
+    "name": "To begin with, the speaker mentioned that global temperatures are rising.",
+    "trans": [
+      "To begin with, the speaker mentioned that …."
+    ],
+    "usphone": "",
+    "ukphone": ""
+  },
+  {
+    "name": "What's more, the speaker emphasized that human activities are the main cause.",
+    "trans": [
+      "What's more, the speaker emphasized that …."
+    ],
+    "usphone": "",
+    "ukphone": ""
+  },
+  {
+    "name": "In addition, the speaker believed that renewable energy could help.",
+    "trans": [
+      "In addition, the speaker believed that …."
+    ],
+    "usphone": "",
+    "ukphone": ""
+  },
+  {
+    "name": "Finally, the speaker said that everyone should take action.",
+    "trans": [
+      "Finally, the speaker said that …."
+    ],
+    "usphone": "",
+    "ukphone": ""
+  },
+  {
+    "name": "The three students are talking about online learning.",
+    "trans": [
+      "The three students are talking about …."
+    ],
+    "usphone": "",
+    "ukphone": ""
+  },
+  {
+    "name": "To begin with, the first student mentioned that it is flexible and convenient.",
+    "trans": [
+      "To begin with, the first student mentioned that …."
+    ],
+    "usphone": "",
+    "ukphone": ""
+  },
+  {
+    "name": "Moreover, the second student talked about the lack of interaction.",
+    "trans": [
+      "Moreover, the second student talked about …."
+    ],
+    "usphone": "",
+    "ukphone": ""
+  },
+  {
+    "name": "In addition, the third student believed that a mix of both is the best choice.",
+    "trans": [
+      "In addition, the third student believed that …."
+    ],
+    "usphone": "",
+    "ukphone": ""
+  },
+  {
+    "name": "In conclusion, online learning has both advantages and disadvantages.",
+    "trans": [
+      "(In conclusion, ….)"
+    ],
+    "usphone": "",
+    "ukphone": ""
+  },
+  {
+    "name": "Hi, I hope you are doing well.",
+    "trans": [
+      "Hi, I hope you are doing well."
+    ],
+    "usphone": "",
+    "ukphone": ""
+  },
+  {
+    "name": "I'm sorry to bother you, but I would like to talk to you about the group project.",
+    "trans": [
+      "I'm sorry to bother you, but I would like to talk to you about …（原文）."
+    ],
+    "usphone": "",
+    "ukphone": ""
+  },
+  {
+    "name": "Here is the situation that I cannot attend the meeting on Friday.",
+    "trans": [
+      "(Here is the situation that ….)"
+    ],
+    "usphone": "",
+    "ukphone": ""
+  },
+  {
+    "name": "So all I want to say is that we could move the meeting to Monday.",
+    "trans": [
+      "So all I want to say is that …（解决方案）."
+    ],
+    "usphone": "",
+    "ukphone": ""
+  },
+  {
+    "name": "Thank you for your time. Hope you have a good day.",
+    "trans": [
+      "Thank you for your time. Hope you have a good day."
+    ],
+    "usphone": "",
+    "ukphone": ""
+  },
+  {
+    "name": "The lecture mainly talks about the topic of separation of powers.",
+    "trans": [
+      "The lecture mainly talks about the topic of …."
+    ],
+    "usphone": "",
+    "ukphone": ""
+  },
+  {
+    "name": "Firstly, the speaker considers that separation of powers could maintain balance and protect freedom.",
+    "trans": [
+      "Firstly, the speaker considers that …."
+    ],
+    "usphone": "",
+    "ukphone": ""
+  },
+  {
+    "name": "Secondly, the speaker thinks that the first power makes laws, and the second power carries out laws.",
+    "trans": [
+      "Secondly, the speaker thinks that …."
+    ],
+    "usphone": "",
+    "ukphone": ""
+  },
+  {
+    "name": "In addition, the speaker believes that this structure could improve fairness and stability.",
+    "trans": [
+      "In addition, the speaker believes that …."
+    ],
+    "usphone": "",
+    "ukphone": ""
+  },
+  {
+    "name": "To begin with",
+    "trans": [
+      "连接词 · 开头（轮着用，不连着重复）"
+    ],
+    "usphone": "",
+    "ukphone": ""
+  },
+  {
+    "name": "First of all",
+    "trans": [
+      "连接词 · 开头（轮着用，不连着重复）"
+    ],
+    "usphone": "",
+    "ukphone": ""
+  },
+  {
+    "name": "Firstly",
+    "trans": [
+      "连接词 · 开头（轮着用，不连着重复）"
+    ],
+    "usphone": "",
+    "ukphone": ""
+  },
+  {
+    "name": "What's more",
+    "trans": [
+      "连接词 · 补充（轮着用，不连着重复）"
+    ],
+    "usphone": "",
+    "ukphone": ""
+  },
+  {
+    "name": "Moreover",
+    "trans": [
+      "连接词 · 补充（轮着用，不连着重复）"
+    ],
+    "usphone": "",
+    "ukphone": ""
+  },
+  {
+    "name": "In addition",
+    "trans": [
+      "连接词 · 补充（轮着用，不连着重复）"
+    ],
+    "usphone": "",
+    "ukphone": ""
+  },
+  {
+    "name": "Furthermore",
+    "trans": [
+      "连接词 · 补充（轮着用，不连着重复）"
+    ],
+    "usphone": "",
+    "ukphone": ""
+  },
+  {
+    "name": "Besides",
+    "trans": [
+      "连接词 · 补充（轮着用，不连着重复）"
+    ],
+    "usphone": "",
+    "ukphone": ""
+  },
+  {
+    "name": "After that",
+    "trans": [
+      "连接词 · 顺序（轮着用，不连着重复）"
+    ],
+    "usphone": "",
+    "ukphone": ""
+  },
+  {
+    "name": "Then",
+    "trans": [
+      "连接词 · 顺序（轮着用，不连着重复）"
+    ],
+    "usphone": "",
+    "ukphone": ""
+  },
+  {
+    "name": "Next",
+    "trans": [
+      "连接词 · 顺序（轮着用，不连着重复）"
+    ],
+    "usphone": "",
+    "ukphone": ""
+  },
+  {
+    "name": "Following that",
+    "trans": [
+      "连接词 · 顺序（轮着用，不连着重复）"
+    ],
+    "usphone": "",
+    "ukphone": ""
+  },
+  {
+    "name": "However",
+    "trans": [
+      "连接词 · 对比（轮着用，不连着重复）"
+    ],
+    "usphone": "",
+    "ukphone": ""
+  },
+  {
+    "name": "In contrast",
+    "trans": [
+      "连接词 · 对比（轮着用，不连着重复）"
+    ],
+    "usphone": "",
+    "ukphone": ""
+  },
+  {
+    "name": "On the other hand",
+    "trans": [
+      "连接词 · 对比（轮着用，不连着重复）"
+    ],
+    "usphone": "",
+    "ukphone": ""
+  },
+  {
+    "name": "Finally",
+    "trans": [
+      "连接词 · 结尾（轮着用，不连着重复）"
+    ],
+    "usphone": "",
+    "ukphone": ""
+  },
+  {
+    "name": "Last but not least",
+    "trans": [
+      "连接词 · 结尾（轮着用，不连着重复）"
+    ],
+    "usphone": "",
+    "ukphone": ""
+  },
+  {
+    "name": "In conclusion",
+    "trans": [
+      "连接词 · 结尾（轮着用，不连着重复）"
+    ],
+    "usphone": "",
+    "ukphone": ""
+  },
+  {
+    "name": "Overall",
+    "trans": [
+      "连接词 · 结尾（轮着用，不连着重复）"
+    ],
+    "usphone": "",
+    "ukphone": ""
+  }
+]
