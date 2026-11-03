@@ -89,11 +89,12 @@ export default function WordPanel() {
   return (
     <div className="container flex h-full w-full flex-col items-center justify-center">
       <div className="container flex h-24 w-full shrink-0 grow-0 justify-between px-12 pt-10">
+        {/* Only the previous word: the next one is always masked, so it showed nothing but underscores.
+            Hidden on phones, where it squeezed into one confusing line with the arrows. */}
         {isShowPrevAndNextWord && state.isTyping && !isSentence && (
-          <>
+          <div className="hidden sm:block">
             <PrevAndNextWord type="prev" />
-            <PrevAndNextWord type="next" />
-          </>
+          </div>
         )}
       </div>
       <div className="container flex flex-grow flex-col items-center justify-center">
