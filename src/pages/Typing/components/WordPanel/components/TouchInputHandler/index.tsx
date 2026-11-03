@@ -6,8 +6,11 @@ import { useContext, useEffect, useRef, useState } from 'react'
 /** Phones and tablets: no physical keyboard, so typing has to go through a focused input that opens the on-screen one. */
 export const isTouchDevice = typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches
 
-// Taps on these keep their own behaviour instead of opening the keyboard.
-const IGNORED_TARGETS = 'a, input, textarea, select, [role="dialog"], [role="listbox"], [role="menu"]'
+// Taps on these keep their own behaviour instead of opening the keyboard. Headless UI
+// widgets (popovers, listboxes, switches) close as soon as focus leaves them, so refocusing the
+// hidden input on those taps would shut a menu the moment it opened (e.g. the 英音/美音 switcher).
+const IGNORED_TARGETS = 'a, input, textarea, select, [role="dialog"], [role="listbox"], [role="menu"], [role="switch"], [id^="headlessui-"]'
+const START_TARGETS = '[aria-label="开始"], [data-start-typing]'
 
 export default function TouchInputHandler({ updateInput }: { updateInput: (updateObj: WordUpdateAction) => void }) {
   // eslint-disable-next-line  @typescript-eslint/no-non-null-assertion
@@ -69,8 +72,9 @@ export default function TouchInputHandler({ updateInput }: { updateInput: (updat
   useEffect(() => {
     const onClick = (e: MouseEvent) => {
       const target = e.target as Element | null
-      if (!target || target.closest(IGNORED_TARGETS)) return
-      if (isTypingRef.current || target.closest('[aria-label="开始"], [data-start-typing]')) inputRef.current?.focus()
+      if (!target) return
+      if (target.closest(START_TARGETS)) inputRef.current?.focus()
+      else if (isTypingRef.current && !target.closest(IGNORED_TARGETS)) inputRef.current?.focus()
     }
     document.addEventListener('click', onClick, true)
     return () => document.removeEventListener('click', onClick, true)
@@ -112,6 +116,7 @@ export default function TouchInputHandler({ updateInput }: { updateInput: (updat
       {state.isTyping && !isFocused && (
         <button
           type="button"
+          data-start-typing
           className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 rounded-full bg-indigo-500 px-5 py-2 text-sm text-white shadow-lg"
         >
           点这里打开键盘
